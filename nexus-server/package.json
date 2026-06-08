@@ -1,0 +1,28 @@
+{
+  "name": "nexus-server",
+  "version": "1.0.0",
+  "description": "Backend services for Nexus HRMS",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "@azure/core-util": "^1.13.1",
+    "@azure/identity": "^4.13.1",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.6",
+    "csv-parser": "^3.2.1",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.2",
+    "jsonwebtoken": "^9.0.3",
+    "msnodesqlv8": "^5.2.0",
+    "mssql": "^10.0.4",
+    "multer": "^2.1.1",
+    "tedious": "^19.2.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}

@@ -1,0 +1,556 @@
+ADD TABLE "AppUser"
+  AREA "Schema Area"
+  DUMP-NAME "appuser"
+
+ADD FIELD "AppUserID" OF "AppUser" AS character 
+  FORMAT "x(8)"
+  INITIAL ""
+  POSITION 2
+  MAX-WIDTH 16
+  ORDER 10
+
+ADD FIELD "Username" OF "AppUser" AS character 
+  FORMAT "x(8)"
+  INITIAL ""
+  POSITION 3
+  MAX-WIDTH 16
+  ORDER 20
+
+ADD FIELD "Password" OF "AppUser" AS character 
+  FORMAT "x(8)"
+  INITIAL ""
+  POSITION 4
+  MAX-WIDTH 16
+  ORDER 30
+
+ADD FIELD "Role" OF "AppUser" AS character 
+  FORMAT "x(8)"
+  INITIAL ""
+  POSITION 5
+  MAX-WIDTH 16
+  ORDER 40
+
+ADD FIELD "LastLogin" OF "AppUser" AS datetime 
+  FORMAT "99/99/9999 HH:MM:SS.SSS"
+  INITIAL ?
+  POSITION 6
+  MAX-WIDTH 8
+  ORDER 50
+
+ADD FIELD "UserStatus" OF "AppUser" AS character 
+  FORMAT "x(20)"
+  INITIAL ""
+  POSITION 7
+  MAX-WIDTH 40
+  ORDER 60
+
+ADD INDEX "AppUserID" ON "AppUser" 
+  AREA "Schema Area"
+  PRIMARY
+  INDEX-FIELD "AppUserID" ASCENDING 
+
+ADD TABLE "EmployeeDetails"
+  AREA "Schema Area"
+  DUMP-NAME "employeedetails"
+
+ADD FIELD "EmpID" OF "EmployeeDetails" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 2
+  MAX-WIDTH 4
+  ORDER 10
+
+ADD FIELD "FullName" OF "EmployeeDetails" AS character 
+  DESCRIPTION "Employee full name"
+  FORMAT "x(50)"
+  INITIAL ""
+  POSITION 3
+  MAX-WIDTH 100
+  ORDER 20
+
+ADD FIELD "DOB" OF "EmployeeDetails" AS date 
+  DESCRIPTION "Date of birth"
+  FORMAT "99/99/99"
+  INITIAL ?
+  POSITION 4
+  MAX-WIDTH 4
+  ORDER 30
+
+ADD FIELD "Gender" OF "EmployeeDetails" AS character 
+  FORMAT "x(10)"
+  INITIAL ""
+  POSITION 5
+  MAX-WIDTH 20
+  ORDER 40
+
+ADD FIELD "Address" OF "EmployeeDetails" AS character 
+  FORMAT "x(100)"
+  INITIAL ""
+  POSITION 6
+  MAX-WIDTH 200
+  ORDER 50
+
+ADD FIELD "Phone" OF "EmployeeDetails" AS character 
+  FORMAT "x(15)"
+  INITIAL ""
+  POSITION 7
+  MAX-WIDTH 30
+  ORDER 60
+
+ADD FIELD "EmailID" OF "EmployeeDetails" AS character 
+  FORMAT "x(50)"
+  INITIAL ""
+  POSITION 8
+  MAX-WIDTH 100
+  ORDER 70
+
+ADD FIELD "BankName" OF "EmployeeDetails" AS character 
+  FORMAT "x(50)"
+  INITIAL ""
+  POSITION 9
+  MAX-WIDTH 100
+  ORDER 80
+
+ADD FIELD "BankAccountNo" OF "EmployeeDetails" AS character 
+  FORMAT "x(20)"
+  INITIAL ""
+  POSITION 10
+  MAX-WIDTH 40
+  ORDER 90
+
+ADD FIELD "IFSCCode" OF "EmployeeDetails" AS character 
+  FORMAT "x(20)"
+  INITIAL ""
+  POSITION 11
+  MAX-WIDTH 40
+  ORDER 100
+
+ADD FIELD "UPPID" OF "EmployeeDetails" AS character 
+  FORMAT "x(50)"
+  INITIAL ""
+  POSITION 12
+  MAX-WIDTH 100
+  ORDER 110
+
+ADD FIELD "PAN" OF "EmployeeDetails" AS character 
+  FORMAT "x(8)"
+  INITIAL ""
+  POSITION 13
+  MAX-WIDTH 16
+  ORDER 120
+
+ADD TABLE "EmployeeLeaveDetails"
+  AREA "Schema Area"
+  DUMP-NAME "employeeleavedetails"
+
+ADD FIELD "EmpID" OF "EmployeeLeaveDetails" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 2
+  MAX-WIDTH 4
+  ORDER 10
+
+ADD FIELD "LeaveType" OF "EmployeeLeaveDetails" AS character 
+  FORMAT "x(20)"
+  INITIAL ""
+  POSITION 3
+  MAX-WIDTH 40
+  ORDER 20
+
+ADD FIELD "FromDate" OF "EmployeeLeaveDetails" AS date 
+  FORMAT "99/99/99"
+  INITIAL ?
+  POSITION 4
+  MAX-WIDTH 4
+  ORDER 30
+
+ADD FIELD "ToDate" OF "EmployeeLeaveDetails" AS date 
+  FORMAT "99/99/99"
+  INITIAL ?
+  POSITION 5
+  MAX-WIDTH 4
+  ORDER 40
+
+ADD FIELD "LeaveStatus" OF "EmployeeLeaveDetails" AS character 
+  FORMAT "x(50)"
+  INITIAL ""
+  POSITION 6
+  MAX-WIDTH 100
+  ORDER 50
+
+ADD FIELD "LeaveDate" OF "EmployeeLeaveDetails" AS date 
+  FORMAT "99/99/99"
+  INITIAL ?
+  POSITION 7
+  MAX-WIDTH 4
+  ORDER 60
+
+ADD FIELD "LeaveReason" OF "EmployeeLeaveDetails" AS character 
+  FORMAT "x(100)"
+  INITIAL ""
+  POSITION 8
+  MAX-WIDTH 200
+  ORDER 70
+
+ADD FIELD "LeaveDays" OF "EmployeeLeaveDetails" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 9
+  MAX-WIDTH 4
+  ORDER 80
+
+ADD FIELD "LeaveStartDate" OF "EmployeeLeaveDetails" AS date 
+  FORMAT "99/99/99"
+  INITIAL ?
+  POSITION 10
+  MAX-WIDTH 4
+  ORDER 90
+
+ADD FIELD "LeaveEndDate" OF "EmployeeLeaveDetails" AS date 
+  FORMAT "99/99/99"
+  INITIAL ?
+  POSITION 11
+  MAX-WIDTH 4
+  ORDER 100
+
+ADD FIELD "TotalDays" OF "EmployeeLeaveDetails" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 12
+  MAX-WIDTH 4
+  ORDER 110
+
+ADD FIELD "IsPaidLeave" OF "EmployeeLeaveDetails" AS character 
+  FORMAT "x(20)"
+  INITIAL ""
+  POSITION 13
+  MAX-WIDTH 40
+  ORDER 120
+
+ADD FIELD "EmpStatus" OF "EmployeeLeaveDetails" AS character 
+  FORMAT "x(8)"
+  INITIAL ""
+  POSITION 14
+  MAX-WIDTH 16
+  ORDER 130
+
+ADD TABLE "EmployeeLogDetails"
+  AREA "Schema Area"
+  DUMP-NAME "employeelogdetails"
+
+ADD FIELD "EmpID" OF "EmployeeLogDetails" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 2
+  MAX-WIDTH 4
+  ORDER 10
+
+ADD FIELD "LogDate" OF "EmployeeLogDetails" AS date 
+  FORMAT "99/99/99"
+  INITIAL ?
+  POSITION 5
+  MAX-WIDTH 4
+  ORDER 40
+
+ADD FIELD "TotalHours" OF "EmployeeLogDetails" AS decimal 
+  FORMAT "->>,>>9.99"
+  INITIAL "0"
+  POSITION 6
+  MAX-WIDTH 17
+  DECIMALS 2
+  ORDER 50
+
+ADD FIELD "LoginTime" OF "EmployeeLogDetails" AS character 
+  FORMAT "x(8)"
+  INITIAL ""
+  POSITION 7
+  MAX-WIDTH 16
+  ORDER 60
+
+ADD FIELD "LogoutTime" OF "EmployeeLogDetails" AS character 
+  FORMAT "x(8)"
+  INITIAL ""
+  POSITION 8
+  MAX-WIDTH 16
+  ORDER 70
+
+ADD TABLE "EmployeeMaster"
+  AREA "Schema Area"
+  DUMP-NAME "employeemaster"
+
+ADD FIELD "EmpID" OF "EmployeeMaster" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 2
+  MAX-WIDTH 4
+  ORDER 10
+
+ADD FIELD "FirstName" OF "EmployeeMaster" AS character 
+  FORMAT "x(20)"
+  INITIAL ""
+  POSITION 3
+  MAX-WIDTH 40
+  ORDER 20
+
+ADD FIELD "LastName" OF "EmployeeMaster" AS character 
+  FORMAT "x(20)"
+  INITIAL ""
+  POSITION 4
+  MAX-WIDTH 40
+  ORDER 30
+
+ADD FIELD "DOJ" OF "EmployeeMaster" AS date 
+  DESCRIPTION "Date of joining"
+  FORMAT "99/99/99"
+  INITIAL ?
+  POSITION 5
+  MAX-WIDTH 4
+  ORDER 40
+
+ADD FIELD "Designation" OF "EmployeeMaster" AS character 
+  DESCRIPTION "Job title"
+  FORMAT "x(100)"
+  INITIAL ""
+  POSITION 6
+  MAX-WIDTH 200
+  ORDER 50
+
+ADD FIELD "Department" OF "EmployeeMaster" AS character 
+  DESCRIPTION "Department name"
+  FORMAT "x(50)"
+  INITIAL ""
+  POSITION 7
+  MAX-WIDTH 100
+  ORDER 60
+
+ADD FIELD "EmpStatus" OF "EmployeeMaster" AS character 
+  FORMAT "x(10)"
+  INITIAL ""
+  POSITION 8
+  MAX-WIDTH 20
+  ORDER 70
+
+ADD INDEX "EmpID" ON "EmployeeMaster" 
+  AREA "Schema Area"
+  PRIMARY
+  INDEX-FIELD "EmpID" ASCENDING 
+
+ADD TABLE "EmployeeSalary"
+  AREA "Schema Area"
+  DUMP-NAME "employeesalary"
+
+ADD FIELD "EmpID" OF "EmployeeSalary" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 2
+  MAX-WIDTH 4
+  ORDER 10
+
+ADD FIELD "DaysPaid" OF "EmployeeSalary" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 3
+  MAX-WIDTH 4
+  ORDER 20
+
+ADD FIELD "DaysInMonth" OF "EmployeeSalary" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 4
+  MAX-WIDTH 4
+  ORDER 30
+
+ADD FIELD "LossOfPay" OF "EmployeeSalary" AS integer 
+  FORMAT "->,>>>,>>9"
+  INITIAL "0"
+  POSITION 5
+  MAX-WIDTH 4
+  ORDER 40
+
+ADD FIELD "ITPAN" OF "EmployeeSalary" AS character 
+  FORMAT "x(10)"
+  INITIAL ""
+  POSITION 6
+  MAX-WIDTH 20
+  ORDER 50
+
+ADD FIELD "SalaryMonth" OF "EmployeeSalary" AS character 
+  FORMAT "x(15)"
+  INITIAL ""
+  POSITION 7
+  MAX-WIDTH 30
+  ORDER 60
+
+ADD FIELD "BasicSalary" OF "EmployeeSalary" AS decimal 
+  FORMAT "->>,>>9.99"
+  INITIAL "0"
+  POSITION 8
+  MAX-WIDTH 17
+  DECIMALS 2
+  ORDER 70
+
+ADD FIELD "HouseRentAllowance" OF "EmployeeSalary" AS decimal 
+  FORMAT "->>,>>9.99"
+  INITIAL "0"
+  POSITION 9
+  MAX-WIDTH 17
+  DECIMALS 2
+  ORDER 80
+
+ADD FIELD "SpecialAllowance" OF "EmployeeSalary" AS decimal 
+  FORMAT "->>,>>9.99"
+  INITIAL "0"
+  POSITION 10
+  MAX-WIDTH 17
+  DECIMALS 2
+  ORDER 90
+
+ADD FIELD "MedicalAllowance" OF "EmployeeSalary" AS decimal 
+  FORMAT "->>,>>9.99"
+  INITIAL "0"
+  POSITION 11
+  MAX-WIDTH 17
+  DECIMALS 2
+  ORDER 100
+
+ADD FIELD "ConveyanceAllowance" OF "EmployeeSalary" AS decimal 
+  FORMAT "->>,>>9.99"
+  INITIAL "0"
+  POSITION 12
+  MAX-WIDTH 17
+  DECIMALS 2
+  ORDER 110
+
+ADD FIELD "OtherAllowance" OF "EmployeeSalary" AS decimal 
+  FORMAT "->>,>>9.99"
+  INITIAL "0"
+  POSITION 13
+  MAX-WIDTH 17
+  DECIMALS 2
+  ORDER 120
+
+ADD FIELD "ProvidentFund" OF "EmployeeSalary" AS decimal 
+  FORMAT "->>,>>9.99"
+  INITIAL "0"
+  POSITION 14
+  MAX-WIDTH 17
+  DECIMALS 2
+  ORDER 130
+
+ADD FIELD "HealthInsurance" OF "EmployeeSalary" AS decimal 
+  FORMAT "->>,>>9.99"
+  INITIAL "0"
+  POSITION 15
+  MAX-WIDTH 17
+  DECIMALS 2
+  ORDER 140
+
+ADD FIELD "ProfessionalTax" OF "EmployeeSalary" AS decimal 
+  FORMAT "->>,>>9.99"
+  INITIAL "0"
+  POSITION 16
+  MAX-WIDTH 17
+  DECIMALS 2
+  ORDER 150
+
+ADD FIELD "TDS" OF "EmployeeSalary" AS decimal 
+  FORMAT "->>,>>9.99"
+  INITIAL "0"
+  POSITION 17
+  MAX-WIDTH 17
+  DECIMALS 2
+  ORDER 160
+
+ADD FIELD "TotalEarnings" OF "EmployeeSalary" AS decimal 
+  FORMAT "->>,>>9.99"
+  INITIAL "0"
+  POSITION 18
+  MAX-WIDTH 17
+  DECIMALS 2
+  ORDER 170
+
+ADD FIELD "TotalDeductions" OF "EmployeeSalary" AS decimal 
+  FORMAT "->>,>>9.99"
+  INITIAL "0"
+  POSITION 19
+  MAX-WIDTH 17
+  DECIMALS 2
+  ORDER 180
+
+ADD FIELD "NetSalaryPaid" OF "EmployeeSalary" AS decimal 
+  FORMAT "->>,>>9.99"
+  INITIAL "0"
+  POSITION 20
+  MAX-WIDTH 17
+  DECIMALS 2
+  ORDER 190
+
+ADD FIELD "PaymentMode" OF "EmployeeSalary" AS character 
+  FORMAT "x(20)"
+  INITIAL ""
+  POSITION 21
+  MAX-WIDTH 40
+  ORDER 200
+
+ADD FIELD "TransactionRef" OF "EmployeeSalary" AS character 
+  FORMAT "x(50)"
+  INITIAL ""
+  POSITION 22
+  MAX-WIDTH 100
+  ORDER 210
+
+ADD FIELD "PaymentDate" OF "EmployeeSalary" AS date 
+  FORMAT "99/99/99"
+  INITIAL ?
+  POSITION 23
+  MAX-WIDTH 4
+  ORDER 220
+
+ADD FIELD "PFNo" OF "EmployeeSalary" AS character 
+  FORMAT "x(8)"
+  INITIAL ""
+  POSITION 25
+  MAX-WIDTH 16
+  ORDER 230
+
+ADD FIELD "IFSCCode" OF "EmployeeSalary" AS character 
+  FORMAT "x(8)"
+  INITIAL ""
+  POSITION 26
+  MAX-WIDTH 16
+  ORDER 240
+
+ADD FIELD "BankName" OF "EmployeeSalary" AS character 
+  FORMAT "x(8)"
+  INITIAL ""
+  POSITION 27
+  MAX-WIDTH 16
+  ORDER 250
+
+ADD FIELD "TotalPay" OF "EmployeeSalary" AS decimal 
+  FORMAT "->>,>>9.99"
+  INITIAL "0"
+  POSITION 28
+  MAX-WIDTH 17
+  DECIMALS 2
+  ORDER 260
+
+ADD FIELD "PANNumber" OF "EmployeeSalary" AS character 
+  FORMAT "x(8)"
+  INITIAL ""
+  POSITION 29
+  MAX-WIDTH 16
+  ORDER 270
+
+ADD FIELD "AccountNo" OF "EmployeeSalary" AS character 
+  FORMAT "x(8)"
+  INITIAL ""
+  POSITION 30
+  MAX-WIDTH 16
+  ORDER 280
+
+.
+PSC
+cpstream=ISO8859-1
+.
+0000010745

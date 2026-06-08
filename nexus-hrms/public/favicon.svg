@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" width="32" height="32">
+  <defs>
+    <linearGradient id="nGrad" x1="15" y1="15" x2="65" y2="85" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#0052d4" />
+      <stop offset="50%" stop-color="#4364f7" />
+      <stop offset="100%" stop-color="#00d2ff" />
+    </linearGradient>
+    <linearGradient id="silverA" x1="47" y1="15" x2="80" y2="85" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#64748b" />
+    </linearGradient>
+    <linearGradient id="silverB" x1="47" y1="85" x2="80" y2="15" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#94a3b8" />
+      <stop offset="100%" stop-color="#ffffff" />
+    </linearGradient>
+  </defs>
+  <path d="M 47 15 L 80 85" stroke="url(#silverA)" stroke-width="14" stroke-linecap="square" />
+  <path d="M 58 15 L 58 85" stroke="url(#nGrad)" stroke-width="14" stroke-linecap="square" />
+  <path d="M 47 85 L 80 15" stroke="url(#silverB)" stroke-width="14" stroke-linecap="square" />
+  <path d="M 22 85 L 22 15 L 58 85" stroke="url(#nGrad)" stroke-width="14" fill="none" stroke-linejoin="miter" stroke-linecap="square" />
+</svg>

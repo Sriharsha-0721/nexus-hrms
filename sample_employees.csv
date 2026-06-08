@@ -1,0 +1,6 @@
+emp-num,first-name,last-name,email,designation,department,join-date,phone,role
+LEGACY_EMP02,Robert,Muldoon,robert.m@nexus.com,Game Warden,Operations,1993-06-11,+12223334444,employee
+LEGACY_ADM01,John,Doe (Updated),admin@nexus.com,Director of HR,Human Resources,2025-01-15,+1234567890,admin
+LEGACY_EMP03,,Grant,alan@nexus.com,Paleontologist,Research,1993-06-11,+15556667777,employee
+LEGACY_EMP04,Ellie,Sattler,ellie.nexus.com,Paleobotanist,Research,1993-06-11,+18889990000,employee
+LEGACY_EMP05,Ian,Malcolm,admin@nexus.com,Chaos Theorist,Research,1993-06-11,+19998887777,employee
