@@ -4,25 +4,37 @@ import {
   getEmployeeById, 
   createEmployee, 
   updateEmployee, 
-  deleteEmployee 
+  deleteEmployee,
+  assignEmployees,
+  getAssignedEmployees,
+  createAdminAccount,
+  getAdminAccounts
 } from '../controllers/employeeController.js';
 import { verifyToken, requireRole } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Get all employees (Admin only)
-router.get('/', verifyToken, requireRole(['admin']), getAllEmployees);
+// Get all employees (HRAdmin/SuperAdmin/PayrollAdmin)
+router.get('/', verifyToken, requireRole(['SuperAdmin', 'HRAdmin', 'PayrollAdmin']), getAllEmployees);
 
-// Get single employee details (Admin, or Employee viewing self)
+// Admin account management (SuperAdmin only)
+router.post('/admins', verifyToken, requireRole(['SuperAdmin']), createAdminAccount);
+router.get('/admins', verifyToken, requireRole(['SuperAdmin']), getAdminAccounts);
+
+// Get single employee details (Admins, or Employee viewing self)
 router.get('/:id', verifyToken, getEmployeeById);
 
-// Create new employee (Admin only)
-router.post('/', verifyToken, requireRole(['admin']), createEmployee);
+// Create new employee (HRAdmin and SuperAdmin only)
+router.post('/', verifyToken, requireRole(['SuperAdmin', 'HRAdmin']), createEmployee);
 
-// Update employee (Admin, or Employee editing self)
+// Update employee (HRAdmin, SuperAdmin, or Employee editing self)
 router.put('/:id', verifyToken, updateEmployee);
 
-// Delete employee (Admin only)
-router.delete('/:id', verifyToken, requireRole(['admin']), deleteEmployee);
+// Delete/Inactivate employee (HRAdmin and SuperAdmin only)
+router.delete('/:id', verifyToken, requireRole(['SuperAdmin', 'HRAdmin']), deleteEmployee);
+
+// Mapping routes (HRAdmin and SuperAdmin only)
+router.post('/assign/:adminId', verifyToken, requireRole(['SuperAdmin', 'HRAdmin']), assignEmployees);
+router.get('/assigned/:adminId', verifyToken, requireRole(['SuperAdmin', 'HRAdmin']), getAssignedEmployees);
 
 export default router;

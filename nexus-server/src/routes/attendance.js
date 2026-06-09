@@ -3,7 +3,9 @@ import {
   clockIn, 
   clockOut, 
   getLogs, 
-  adjustAttendance 
+  adjustAttendance,
+  createAttendance,
+  deleteAttendance
 } from '../controllers/attendanceController.js';
 import { verifyToken, requireRole } from '../middleware/auth.js';
 
@@ -12,6 +14,8 @@ const router = express.Router();
 router.post('/clock-in', verifyToken, clockIn);
 router.post('/clock-out', verifyToken, clockOut);
 router.get('/logs', verifyToken, getLogs);
-router.put('/adjust', verifyToken, requireRole(['admin']), adjustAttendance);
+router.put('/adjust', verifyToken, requireRole(['SuperAdmin', 'HRAdmin']), adjustAttendance);
+router.post('/', verifyToken, requireRole(['SuperAdmin', 'HRAdmin']), createAttendance);
+router.delete('/:id', verifyToken, requireRole(['SuperAdmin', 'HRAdmin']), deleteAttendance);
 
 export default router;

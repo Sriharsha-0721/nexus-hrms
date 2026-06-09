@@ -1,9 +1,19 @@
 import { employeeService } from '../services/employeeService.js';
 
-// Get all employees (Admin only)
+// Get all employees (Admins only)
 export const getAllEmployees = async (req, res) => {
   try {
-    const employees = await employeeService.getAllEmployees();
+    // If HRAdmin, filter by assigned employees (if adminId is passed or implicit)
+    let adminId = req.query.adminId ? parseInt(req.query.adminId, 10) : null;
+    
+    // SuperAdmin and PayrollAdmin bypass mapping, HRAdmins filter by ownership mapping
+    if (req.user.role === 'HRAdmin' && !adminId) {
+      adminId = req.user.id;
+    } else if (req.user.role === 'SuperAdmin' || req.user.role === 'PayrollAdmin') {
+      adminId = null; // show all
+    }
+
+    const employees = await employeeService.getAllEmployees(adminId);
     res.json(employees);
   } catch (err) {
     console.error('Get All Employees Controller Error: ', err);
@@ -16,7 +26,8 @@ export const getEmployeeById = async (req, res) => {
   const id = parseInt(req.params.id, 10);
 
   // RBAC check: Employees can only view their own profile, Admins can view anyone
-  if (req.user.role !== 'admin' && req.user.id !== id) {
+  const isAdmin = ['SuperAdmin', 'HRAdmin', 'PayrollAdmin'].includes(req.user.role);
+  if (!isAdmin && req.user.id !== id) {
     return res.status(403).json({ message: 'Access forbidden: Insufficient permissions.' });
   }
 
@@ -32,10 +43,10 @@ export const getEmployeeById = async (req, res) => {
   }
 };
 
-// Create new employee (Admin only)
+// Create new employee (SuperAdmin/HRAdmin only)
 export const createEmployee = async (req, res) => {
   try {
-    const employeeId = await employeeService.createEmployee(req.body);
+    const employeeId = await employeeService.createEmployee(req.body, req.user.id);
     res.status(201).json({
       message: 'Employee created successfully.',
       employeeId
@@ -53,17 +64,18 @@ export const createEmployee = async (req, res) => {
   }
 };
 
-// Update employee info (Admin, or Employee editing their own data)
+// Update employee info (SuperAdmin, HRAdmin, or Employee editing their own data)
 export const updateEmployee = async (req, res) => {
   const id = parseInt(req.params.id, 10);
 
-  // RBAC check: Employees can only edit their own profile, Admins can edit anyone
-  if (req.user.role !== 'admin' && req.user.id !== id) {
+  // RBAC check: Employees can edit their own profile, SuperAdmin & HRAdmin can edit anyone
+  const isHR = ['SuperAdmin', 'HRAdmin'].includes(req.user.role);
+  if (!isHR && req.user.id !== id) {
     return res.status(403).json({ message: 'Access forbidden: Insufficient permissions.' });
   }
 
   try {
-    await employeeService.updateEmployee(id, req.body, req.user.role);
+    await employeeService.updateEmployee(id, req.body, req.user.role, req.user.id);
     res.json({ message: 'Employee updated successfully.' });
   } catch (err) {
     console.error('Update Employee Controller Error: ', err);
@@ -81,19 +93,69 @@ export const updateEmployee = async (req, res) => {
   }
 };
 
-// Delete employee (Admin only)
+// Delete employee (SuperAdmin/HRAdmin only)
 export const deleteEmployee = async (req, res) => {
   const id = parseInt(req.params.id, 10);
 
   try {
-    await employeeService.deleteEmployee(id);
-    res.json({ message: 'Employee deleted successfully.' });
+    await employeeService.deleteEmployee(id, req.user.id);
+    res.json({ message: 'Employee deleted/inactivated successfully.' });
   } catch (err) {
     console.error('Delete Employee Controller Error: ', err);
     const msg = err.message;
     if (msg.includes('not found')) {
       return res.status(404).json({ message: msg });
     }
+    res.status(500).json({ message: 'An internal server error occurred.' });
+  }
+};
+
+// Assign employees to an admin (HRAdmin/SuperAdmin only)
+export const assignEmployees = async (req, res) => {
+  try {
+    const adminId = parseInt(req.params.adminId, 10);
+    const { employeeIds } = req.body;
+    await employeeService.assignEmployeesToAdmin(adminId, employeeIds, req.user.id);
+    res.json({ message: 'Employees assigned successfully.' });
+  } catch (err) {
+    console.error('Assign Employees Controller Error: ', err);
+    res.status(400).json({ message: err.message });
+  }
+};
+
+// Get employees assigned to an admin (HRAdmin/SuperAdmin only)
+export const getAssignedEmployees = async (req, res) => {
+  try {
+    const adminId = parseInt(req.params.adminId, 10);
+    const employeeIds = await employeeService.getAssignedEmployeesForAdmin(adminId);
+    res.json(employeeIds);
+  } catch (err) {
+    console.error('Get Assigned Employees Controller Error: ', err);
+    res.status(500).json({ message: 'An internal server error occurred.' });
+  }
+};
+
+// Create admin login account (SuperAdmin only)
+export const createAdminAccount = async (req, res) => {
+  try {
+    const adminId = await employeeService.createAdminAccount(req.body, req.user.id);
+    res.status(201).json({
+      message: 'Admin account created successfully.',
+      adminId
+    });
+  } catch (err) {
+    console.error('Create Admin Controller Error: ', err);
+    res.status(400).json({ message: err.message });
+  }
+};
+
+// Get all admin login accounts (SuperAdmin only)
+export const getAdminAccounts = async (req, res) => {
+  try {
+    const admins = await employeeService.getAdminAccounts();
+    res.json(admins);
+  } catch (err) {
+    console.error('Get Admin Accounts Controller Error: ', err);
     res.status(500).json({ message: 'An internal server error occurred.' });
   }
 };

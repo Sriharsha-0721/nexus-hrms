@@ -159,5 +159,63 @@ export const attendanceService = {
       `);
 
     return updateResult.recordset[0];
+  },
+
+  createAttendanceRecord: async (data) => {
+    const { employeeId, date, status, clockIn, clockOut } = data;
+    if (!employeeId || !date) throw new Error('Employee ID and Date are required.');
+    const pool = await connectDB();
+    
+    // Check if exists
+    const checkResult = await pool.request()
+      .input('employeeId', sql.Int, employeeId)
+      .input('date', sql.Date, date)
+      .query('SELECT AttendanceID FROM dbo.EmployeeAttendance WHERE EmpID = @employeeId AND AttendanceDate = @date');
+    if (checkResult.recordset.length > 0) {
+      throw new Error('Attendance record already exists for this date.');
+    }
+
+    let totalHours = null;
+    let checkOutTimeDecimal = null;
+    if (clockIn && clockOut) {
+      const [inH, inM] = clockIn.split(':').map(Number);
+      const [outH, outM] = clockOut.split(':').map(Number);
+      totalHours = Math.max(0, (outH * 3600 + outM * 60 - (inH * 3600 + inM * 60)) / 3600);
+      checkOutTimeDecimal = parseFloat((outH + outM / 60).toFixed(2));
+    }
+
+    const result = await pool.request()
+      .input('employeeId', sql.Int, employeeId)
+      .input('date', sql.Date, date)
+      .input('status', sql.VarChar, status || 'Present')
+      .input('clockIn', sql.VarChar, clockIn ? `${clockIn}:00` : null)
+      .input('clockOut', sql.VarChar, clockOut ? `${clockOut}:00` : null)
+      .input('totalHours', sql.Decimal(5, 2), totalHours !== null ? parseFloat(totalHours.toFixed(2)) : null)
+      .input('checkOutTimeDecimal', sql.Decimal(5, 2), checkOutTimeDecimal)
+      .query(`
+        INSERT INTO dbo.EmployeeAttendance (EmpID, AttendanceDate, AttendanceStatus, ClockIn, ClockOut, TotalHours, CheckOutTime)
+        OUTPUT inserted.AttendanceID AS attendance_id, inserted.AttendanceDate AS date, inserted.ClockIn AS clock_in, inserted.ClockOut AS clock_out, inserted.AttendanceStatus AS status, inserted.TotalHours AS total_hours
+        VALUES (@employeeId, @date, @status, CAST(@clockIn AS TIME), CAST(@clockOut AS TIME), @totalHours, @checkOutTimeDecimal)
+      `);
+    return result.recordset[0];
+  },
+
+  deleteAttendanceRecord: async (attendanceId) => {
+    const pool = await connectDB();
+    const result = await pool.request()
+      .input('attendanceId', sql.Int, attendanceId)
+      .query(`
+        UPDATE dbo.EmployeeAttendance
+        SET AttendanceStatus = 'Absent',
+            ClockIn = NULL,
+            ClockOut = NULL,
+            TotalHours = 0.00,
+            CheckOutTime = NULL
+        WHERE AttendanceID = @attendanceId
+      `);
+    if (result.rowsAffected[0] === 0) {
+      throw new Error('Attendance record not found.');
+    }
+    return true;
   }
 };

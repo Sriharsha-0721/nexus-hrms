@@ -1,15 +1,5 @@
 import { connectDB, sql } from '../config/db.js';
 
-// Annual Leave Allowances
-const LEAVE_ALLOWANCES = {
-  'Sick Leave': 10,
-  'Casual Leave': 12,
-  'Earned Leave': 15,
-  'Paternity Leave': 10,
-  'Maternity Leave': 90,
-  'Unpaid Leave': 365 // Cap
-};
-
 export const leaveService = {
   /**
    * Calculate leave balances for an employee in the current year
@@ -17,6 +7,13 @@ export const leaveService = {
   getLeaveBalances: async (employeeId) => {
     const pool = await connectDB();
     const currentYear = new Date().getFullYear();
+
+    // Fetch policies dynamically from SQL Server
+    const policiesResult = await pool.request().query('SELECT LeaveType, MaxAllowedDays FROM dbo.LeavePolicies');
+    const policiesMap = {};
+    policiesResult.recordset.forEach(row => {
+      policiesMap[row.LeaveType] = row.MaxAllowedDays;
+    });
 
     // Sum up approved leaves by type for this calendar year
     const approvedResult = await pool.request()
@@ -40,8 +37,8 @@ export const leaveService = {
 
     // Construct balances list
     const balances = {};
-    Object.keys(LEAVE_ALLOWANCES).forEach(type => {
-      const allowed = LEAVE_ALLOWANCES[type];
+    Object.keys(policiesMap).forEach(type => {
+      const allowed = policiesMap[type];
       const taken = approvedMap[type] || 0;
       balances[type] = {
         allowed,
@@ -141,18 +138,57 @@ export const leaveService = {
       }
     }
 
-    const result = await pool.request()
-      .input('leaveId', sql.Int, leaveId)
-      .input('status', sql.VarChar, status)
-      .input('adminId', sql.Int, adminId)
-      .query(`
-        UPDATE dbo.EmployeeLeaveDetails
-        SET LeaveStatus = @status, ApprovedBy = @adminId
-        OUTPUT inserted.LeaveID AS leave_id, inserted.EmpID AS employee_id, inserted.LeaveType AS leave_type, inserted.LeaveStatus AS status, inserted.ApprovedBy AS approved_by
-        WHERE LeaveID = @leaveId
-      `);
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
 
-    return result.recordset[0];
+    try {
+      // 1. Update status
+      const result = await transaction.request()
+        .input('leaveId', sql.Int, leaveId)
+        .input('status', sql.VarChar, status)
+        .input('adminId', sql.Int, adminId)
+        .query(`
+          UPDATE dbo.EmployeeLeaveDetails
+          SET LeaveStatus = @status, ApprovedBy = @adminId
+          OUTPUT inserted.LeaveID AS leave_id, inserted.EmpID AS employee_id, inserted.LeaveType AS leave_type, inserted.LeaveStatus AS status, inserted.ApprovedBy AS approved_by
+          WHERE LeaveID = @leaveId
+        `);
+
+      const updatedRecord = result.recordset[0];
+
+      // 2. Audit Log
+      const auditAction = status === 'Approved' ? 'LEAVE_APPROVE' : 'LEAVE_REJECT';
+      const auditDesc = `Leave request ID ${leaveId} for employee ID ${leaveRequest.employee_id} was ${status} by admin ID ${adminId}`;
+      await transaction.request()
+        .input('actorEmpId', sql.Int, adminId)
+        .input('actionType', sql.VarChar, auditAction)
+        .input('actionDesc', sql.VarChar, auditDesc)
+        .query(`
+          INSERT INTO dbo.AuditLogs (ActorEmpID, ActionType, ActionDesc)
+          VALUES (@actorEmpId, @actionType, @actionDesc)
+        `);
+
+      // 3. Notification
+      const formattedStart = new Date(leaveRequest.start_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+      const formattedEnd = new Date(leaveRequest.end_date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+      const notificationTitle = `Leave Request ${status}`;
+      const notificationMsg = `Your leave request for ${leaveRequest.leave_type} from ${formattedStart} to ${formattedEnd} has been ${status.toLowerCase()}.`;
+      
+      await transaction.request()
+        .input('empId', sql.Int, leaveRequest.employee_id)
+        .input('title', sql.VarChar, notificationTitle)
+        .input('message', sql.VarChar, notificationMsg)
+        .query(`
+          INSERT INTO dbo.Notifications (EmpID, Title, Message, IsRead, CreatedAt)
+          VALUES (@empId, @title, @message, 0, GETDATE())
+        `);
+
+      await transaction.commit();
+      return updatedRecord;
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
   },
 
   /**
@@ -180,5 +216,39 @@ export const leaveService = {
     query += ` ORDER BY l.LeaveDate DESC, l.LeaveID DESC`;
     const result = await request.query(query);
     return result.recordset;
+  },
+
+  /**
+   * Get all leave policies (Admin only)
+   */
+  getLeavePolicies: async () => {
+    const pool = await connectDB();
+    const result = await pool.request().query(`
+      SELECT PolicyID AS id, LeaveType AS leaveType, MaxAllowedDays AS maxAllowedDays, IsCarryForward AS isCarryForward
+      FROM dbo.LeavePolicies
+      ORDER BY PolicyID ASC
+    `);
+    return result.recordset;
+  },
+
+  /**
+   * Update a leave policy (Admin only)
+   */
+  updateLeavePolicy: async (id, data) => {
+    const { maxAllowedDays, isCarryForward } = data;
+    const pool = await connectDB();
+    const result = await pool.request()
+      .input('id', sql.Int, id)
+      .input('maxAllowedDays', sql.Int, maxAllowedDays)
+      .input('isCarryForward', sql.Bit, isCarryForward ? 1 : 0)
+      .query(`
+        UPDATE dbo.LeavePolicies
+        SET MaxAllowedDays = @maxAllowedDays, IsCarryForward = @isCarryForward
+        WHERE PolicyID = @id
+      `);
+    if (result.rowsAffected[0] === 0) {
+      throw new Error('Leave policy not found.');
+    }
+    return true;
   }
 };

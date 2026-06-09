@@ -20,6 +20,7 @@
     "msnodesqlv8": "^5.2.0",
     "mssql": "^10.0.4",
     "multer": "^2.1.1",
+    "pdfkit": "^0.19.0",
     "tedious": "^19.2.1"
   },
   "devDependencies": {

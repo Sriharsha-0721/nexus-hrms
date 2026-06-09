@@ -1,7 +1,7 @@
 @echo off
 title Nexus HRMS Runner
 echo ==================================================
-echo  Starting Nexus HRMS Application Suite
+echo  Starting Nexus HRMS Application 
 echo ==================================================
 echo.
 

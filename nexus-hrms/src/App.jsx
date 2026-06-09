@@ -11,6 +11,7 @@ import Attendance from './Features/Attendance/Attendance';
 import Leave from './Features/Leave/Leave';
 import Reports from './Features/Reports/Reports';
 import AdminSettings from './Features/Admin/AdminSettings';
+import AdminManagement from './Features/Admin/AdminManagement';
 
 // Employee Features
 import Profile from './Features/Profile/Profile';
@@ -38,6 +39,7 @@ function App() {
           <Route path="/payroll" element={<Payroll />} />
           <Route path="/reports" element={<Reports />} />
           <Route path="/admin" element={<AdminSettings />} />
+          <Route path="/admin-management" element={<AdminManagement />} />
           
           {/* Employee Routes */}
           <Route path="/profile" element={<Profile />} />

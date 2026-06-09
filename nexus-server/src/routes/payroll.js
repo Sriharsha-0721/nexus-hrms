@@ -3,15 +3,67 @@ import {
   runPayroll, 
   getHistory, 
   getPayslip, 
-  updatePaymentStatus 
+  updatePaymentStatus,
+  getPayrollRuns,
+  updatePayrollRunStatus,
+  createSalaryRevision,
+  getSalaryRevisions,
+  getPayrollReport,
+  getLeavesReport,
+  getEmployeesReport,
+  getDashboardStats,
+  requestRunApprovalOtp,
+  verifyRunApprovalOtp,
+  getReconciliationReport,
+  downloadPayslipPdf,
+  getLatestOtpForTest,
+  getPayrollConfirmationData,
+  releasePayroll,
+  getPayrollRunHistory,
+  getEmployeeHrManager
 } from '../controllers/payrollController.js';
 import { verifyToken, requireRole } from '../middleware/auth.js';
 
 const router = express.Router();
 
-router.post('/run', verifyToken, requireRole(['admin']), runPayroll);
+// Pre-flight confirmation data (before generating payroll)
+router.get('/confirm', verifyToken, requireRole(['SuperAdmin', 'PayrollAdmin']), getPayrollConfirmationData);
+
+router.post('/run', verifyToken, requireRole(['SuperAdmin', 'PayrollAdmin']), runPayroll);
 router.get('/history', verifyToken, getHistory);
 router.get('/payslip/:id', verifyToken, getPayslip);
-router.put('/status/:id', verifyToken, requireRole(['admin']), updatePaymentStatus);
+router.put('/status/:id', verifyToken, requireRole(['SuperAdmin', 'PayrollAdmin']), updatePaymentStatus);
+
+// Runs & Lifecycle
+router.get('/runs', verifyToken, getPayrollRuns);
+router.put('/runs/:id/status', verifyToken, requireRole(['SuperAdmin', 'PayrollAdmin']), updatePayrollRunStatus);
+router.post('/runs/:id/release', verifyToken, requireRole(['SuperAdmin', 'PayrollAdmin']), releasePayroll);
+
+// Full run history (for Payroll History screen)
+router.get('/run-history', verifyToken, requireRole(['SuperAdmin', 'PayrollAdmin', 'HRAdmin']), getPayrollRunHistory);
+
+// Salary Revisions
+router.post('/revisions', verifyToken, requireRole(['SuperAdmin', 'PayrollAdmin']), createSalaryRevision);
+router.get('/revisions/:empId', verifyToken, getSalaryRevisions);
+
+// Reports
+router.get('/reports/payroll', verifyToken, requireRole(['SuperAdmin', 'PayrollAdmin', 'HRAdmin']), getPayrollReport);
+router.get('/reports/leaves', verifyToken, requireRole(['SuperAdmin', 'PayrollAdmin', 'HRAdmin']), getLeavesReport);
+router.get('/reports/employees', verifyToken, requireRole(['SuperAdmin', 'PayrollAdmin', 'HRAdmin']), getEmployeesReport);
+
+// Dashboard
+router.get('/dashboard-stats', verifyToken, requireRole(['SuperAdmin', 'PayrollAdmin', 'HRAdmin']), getDashboardStats);
+
+// Employee HR Admin & Reporting Manager
+router.get('/me/hr-manager', verifyToken, getEmployeeHrManager);
+
+// Admin OTP, Reconciliation & PDF Downloads
+router.post('/runs/:id/otp-request', verifyToken, requireRole(['SuperAdmin', 'PayrollAdmin']), requestRunApprovalOtp);
+router.post('/runs/:id/otp-verify', verifyToken, requireRole(['SuperAdmin', 'PayrollAdmin']), verifyRunApprovalOtp);
+router.get('/runs/:id/reconciliation', verifyToken, requireRole(['SuperAdmin', 'PayrollAdmin', 'HRAdmin']), getReconciliationReport);
+router.get('/payslips/:id/download', verifyToken, downloadPayslipPdf);
+router.get('/latest-otp-for-test', getLatestOtpForTest);
 
 export default router;
+
+

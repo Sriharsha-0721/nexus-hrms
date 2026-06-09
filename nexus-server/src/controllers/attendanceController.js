@@ -64,3 +64,27 @@ export const adjustAttendance = async (req, res) => {
     res.status(400).json({ message: err.message });
   }
 };
+
+export const createAttendance = async (req, res) => {
+  try {
+    const record = await attendanceService.createAttendanceRecord(req.body);
+    res.status(201).json({
+      message: 'Attendance record created successfully.',
+      record
+    });
+  } catch (err) {
+    console.error('Create attendance record error:', err);
+    res.status(400).json({ message: err.message });
+  }
+};
+
+export const deleteAttendance = async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  try {
+    await attendanceService.deleteAttendanceRecord(id);
+    res.json({ message: 'Attendance record deleted successfully.' });
+  } catch (err) {
+    console.error('Delete attendance record error:', err);
+    res.status(err.message.includes('not found') ? 404 : 400).json({ message: err.message });
+  }
+};

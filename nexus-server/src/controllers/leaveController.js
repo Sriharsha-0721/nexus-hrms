@@ -68,3 +68,24 @@ export const approveRejectLeave = async (req, res) => {
     res.status(400).json({ message: err.message });
   }
 };
+
+export const getPolicies = async (req, res) => {
+  try {
+    const policies = await leaveService.getLeavePolicies();
+    res.json(policies);
+  } catch (err) {
+    console.error('Get policies error:', err);
+    res.status(500).json({ message: 'Failed to fetch leave policies.' });
+  }
+};
+
+export const updatePolicy = async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  try {
+    await leaveService.updateLeavePolicy(id, req.body);
+    res.json({ message: 'Leave policy updated successfully.' });
+  } catch (err) {
+    console.error('Update policy error:', err);
+    res.status(err.message.includes('not found') ? 404 : 400).json({ message: err.message });
+  }
+};

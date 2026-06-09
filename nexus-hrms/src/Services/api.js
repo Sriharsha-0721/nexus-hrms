@@ -1,4 +1,7 @@
-const BASE_URL = 'http://localhost:5000/api';
+// Relative URL — Vite dev proxy forwards /api/* → http://localhost:5000/api/*
+// This means no CORS issues and no hardcoded ports. Works on any machine.
+const BASE_URL = '/api';
+
 
 const request = async (endpoint, options = {}) => {
   const token = localStorage.getItem('token');
@@ -60,6 +63,19 @@ export const api = {
   post: (endpoint, body, options = {}) => request(endpoint, { ...options, method: 'POST', body }),
   put: (endpoint, body, options = {}) => request(endpoint, { ...options, method: 'PUT', body }),
   delete: (endpoint, options = {}) => request(endpoint, { ...options, method: 'DELETE' }),
+  download: async (endpoint) => {
+    const token = localStorage.getItem('token');
+    const headers = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const response = await fetch(`${BASE_URL}${endpoint}`, { headers });
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.message || 'Download failed');
+    }
+    return await response.blob();
+  }
 };
 
 export default api;

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { User, Lock, ArrowRight, Shield, Users } from 'lucide-react';
+import { User, Lock, ArrowRight, Shield, Users, Eye, EyeOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import authService from '../../Services/authService.js';
 import Logo from '../../Shared/Logo.jsx';
@@ -12,19 +12,81 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Lockout State Management
+  const [failedAttempts, setFailedAttempts] = useState(() => {
+    return parseInt(localStorage.getItem('failed_attempts') || '0', 10);
+  });
+  const [lockUntil, setLockUntil] = useState(() => {
+    return parseInt(localStorage.getItem('lock_until') || '0', 10);
+  });
+  const [remainingLockTime, setRemainingLockTime] = useState(0);
 
   // Force dark theme for login page to match the premium dark theme
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', 'dark');
   }, []);
 
+  // Lockout Countdown Timer
+  useEffect(() => {
+    const checkLock = () => {
+      const now = Date.now();
+      if (lockUntil > now) {
+        const secondsLeft = Math.ceil((lockUntil - now) / 1000);
+        setRemainingLockTime(secondsLeft);
+      } else {
+        if (remainingLockTime > 0) {
+          setRemainingLockTime(0);
+          setFailedAttempts(0);
+          localStorage.removeItem('failed_attempts');
+          localStorage.removeItem('lock_until');
+        }
+      }
+    };
+
+    checkLock();
+    let interval;
+    if (lockUntil > Date.now()) {
+      interval = setInterval(() => {
+        const now = Date.now();
+        if (lockUntil > now) {
+          setRemainingLockTime(Math.ceil((lockUntil - now) / 1000));
+        } else {
+          setRemainingLockTime(0);
+          setFailedAttempts(0);
+          localStorage.removeItem('failed_attempts');
+          localStorage.removeItem('lock_until');
+          clearInterval(interval);
+        }
+      }, 1000);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [lockUntil]);
+
   const handleLogin = async (e) => {
     e.preventDefault();
+
+    // Prevent login if locked
+    if (remainingLockTime > 0) {
+      setError(`Too many failed attempts. Login is locked. Please wait ${remainingLockTime} seconds.`);
+      return;
+    }
+
     setError(null);
     setLoading(true);
 
     try {
       const data = await authService.login(email, password);
+      // Reset failed attempts on success
+      localStorage.removeItem('failed_attempts');
+      localStorage.removeItem('lock_until');
+      setFailedAttempts(0);
+      setLockUntil(0);
+
       // Redirect to respective dashboard
       if (data.user.role === 'admin') {
         navigate('/dashboard');
@@ -32,7 +94,18 @@ const Login = () => {
         navigate('/my-dashboard');
       }
     } catch (err) {
-      setError(err.message || 'Login failed. Please check your credentials.');
+      const newAttempts = failedAttempts + 1;
+      setFailedAttempts(newAttempts);
+      localStorage.setItem('failed_attempts', newAttempts.toString());
+
+      if (newAttempts >= 3) {
+        const lockoutPeriod = Date.now() + 60 * 1000; // 1 minute lock
+        setLockUntil(lockoutPeriod);
+        localStorage.setItem('lock_until', lockoutPeriod.toString());
+        setError('Too many failed attempts. Login is locked for 1 minute.');
+      } else {
+        setError(err.message || 'Login failed. Please check your credentials.');
+      }
     } finally {
       setLoading(false);
     }
@@ -79,6 +152,7 @@ const Login = () => {
         <div style={{ display: 'flex', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', padding: '0.25rem', marginBottom: '2rem' }}>
           <button 
             type="button"
+            disabled={remainingLockTime > 0}
             onClick={() => setLoginType('employee')}
             style={{
               flex: 1,
@@ -92,13 +166,14 @@ const Login = () => {
               fontWeight: 600,
               fontSize: '0.9rem',
               transition: 'all 0.2s',
-              cursor: 'pointer'
+              cursor: remainingLockTime > 0 ? 'not-allowed' : 'pointer'
             }}
           >
             <Users size={18} /> Employee
           </button>
           <button 
             type="button"
+            disabled={remainingLockTime > 0}
             onClick={() => setLoginType('admin')}
             style={{
               flex: 1,
@@ -112,7 +187,7 @@ const Login = () => {
               fontWeight: 600,
               fontSize: '0.9rem',
               transition: 'all 0.2s',
-              cursor: 'pointer'
+              cursor: remainingLockTime > 0 ? 'not-allowed' : 'pointer'
             }}
           >
             <Shield size={18} /> Administrator
@@ -121,9 +196,9 @@ const Login = () => {
 
         {error && (
           <div style={{
-            background: 'rgba(239, 68, 68, 0.1)',
-            color: 'var(--danger)',
-            border: '1px solid rgba(239, 68, 68, 0.2)',
+            background: remainingLockTime > 0 ? 'rgba(245, 158, 11, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+            color: remainingLockTime > 0 ? 'var(--warning)' : 'var(--danger)',
+            border: remainingLockTime > 0 ? '1px solid rgba(245, 158, 11, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)',
             borderRadius: 'var(--radius-md)',
             padding: '0.75rem 1rem',
             fontSize: '0.9rem',
@@ -149,18 +224,20 @@ const Login = () => {
                 type="text" 
                 placeholder={loginType === 'admin' ? 'admin@nexus.com' : 'employee@nexus.com'}
                 required
+                disabled={remainingLockTime > 0}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 style={{
                   width: '100%',
                   padding: '0.85rem 1rem 0.85rem 45px',
-                  background: 'var(--bg-primary)',
+                  background: remainingLockTime > 0 ? 'var(--bg-tertiary)' : 'var(--bg-primary)',
                   border: '1px solid var(--border-color)',
                   borderRadius: 'var(--radius-md)',
                   color: 'var(--text-primary)',
                   fontSize: '0.95rem',
                   outline: 'none',
-                  transition: 'border-color 0.2s'
+                  transition: 'border-color 0.2s',
+                  cursor: remainingLockTime > 0 ? 'not-allowed' : 'text'
                 }}
                 onFocus={(e) => e.target.style.borderColor = 'var(--accent-primary)'}
                 onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
@@ -175,44 +252,72 @@ const Login = () => {
                 <Lock size={18} />
               </div>
               <input 
-                type="password" 
+                type={showPassword ? 'text' : 'password'} 
                 placeholder="••••••••"
                 required
+                disabled={remainingLockTime > 0}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 style={{
                   width: '100%',
-                  padding: '0.85rem 1rem 0.85rem 45px',
-                  background: 'var(--bg-primary)',
+                  padding: '0.85rem 45px 0.85rem 45px',
+                  background: remainingLockTime > 0 ? 'var(--bg-tertiary)' : 'var(--bg-primary)',
                   border: '1px solid var(--border-color)',
                   borderRadius: 'var(--radius-md)',
                   color: 'var(--text-primary)',
                   fontSize: '0.95rem',
                   outline: 'none',
-                  transition: 'border-color 0.2s'
+                  transition: 'border-color 0.2s',
+                  cursor: remainingLockTime > 0 ? 'not-allowed' : 'text'
                 }}
                 onFocus={(e) => e.target.style.borderColor = 'var(--accent-primary)'}
                 onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
               />
+              <button
+                type="button"
+                disabled={remainingLockTime > 0}
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  height: '100%',
+                  width: '45px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--text-tertiary)',
+                  cursor: remainingLockTime > 0 ? 'not-allowed' : 'pointer',
+                  outline: 'none'
+                }}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-              <input type="checkbox" style={{ accentColor: 'var(--accent-primary)', width: '16px', height: '16px' }} />
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: remainingLockTime > 0 ? 'not-allowed' : 'pointer' }}>
+              <input 
+                type="checkbox" 
+                disabled={remainingLockTime > 0}
+                style={{ accentColor: 'var(--accent-primary)', width: '16px', height: '16px' }} 
+              />
               <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Remember me</span>
             </label>
-            <a href="#" style={{ fontSize: '0.85rem', color: 'var(--accent-primary)', fontWeight: 500 }}>Forgot Password?</a>
+            <a href="#" style={{ fontSize: '0.85rem', color: 'var(--accent-primary)', fontWeight: 500, pointerEvents: remainingLockTime > 0 ? 'none' : 'auto', opacity: remainingLockTime > 0 ? 0.5 : 1 }}>Forgot Password?</a>
           </div>
 
           <button 
             type="submit"
-            disabled={loading}
+            disabled={loading || remainingLockTime > 0}
             style={{
               width: '100%',
               marginTop: '1rem',
               padding: '0.85rem',
-              background: loading ? 'var(--border-color)' : 'var(--accent-primary)',
+              background: (loading || remainingLockTime > 0) ? 'var(--border-color)' : 'var(--accent-primary)',
               color: '#fff',
               border: 'none',
               borderRadius: 'var(--radius-md)',
@@ -222,15 +327,15 @@ const Login = () => {
               alignItems: 'center',
               justifyContent: 'center',
               gap: '0.5rem',
-              cursor: loading ? 'not-allowed' : 'pointer',
+              cursor: (loading || remainingLockTime > 0) ? 'not-allowed' : 'pointer',
               transition: 'background-color 0.2s, transform 0.1s'
             }}
-            onMouseOver={(e) => { if (!loading) e.currentTarget.style.backgroundColor = 'var(--accent-primary-hover)'; }}
-            onMouseOut={(e) => { if (!loading) e.currentTarget.style.backgroundColor = 'var(--accent-primary)'; }}
-            onMouseDown={(e) => { if (!loading) e.currentTarget.style.transform = 'scale(0.98)'; }}
-            onMouseUp={(e) => { if (!loading) e.currentTarget.style.transform = 'scale(1)'; }}
+            onMouseOver={(e) => { if (!loading && remainingLockTime === 0) e.currentTarget.style.backgroundColor = 'var(--accent-primary-hover)'; }}
+            onMouseOut={(e) => { if (!loading && remainingLockTime === 0) e.currentTarget.style.backgroundColor = 'var(--accent-primary)'; }}
+            onMouseDown={(e) => { if (!loading && remainingLockTime === 0) e.currentTarget.style.transform = 'scale(0.98)'; }}
+            onMouseUp={(e) => { if (!loading && remainingLockTime === 0) e.currentTarget.style.transform = 'scale(1)'; }}
           >
-            Sign In <ArrowRight size={18} />
+            {remainingLockTime > 0 ? `Locked (${remainingLockTime}s)` : 'Sign In'} <ArrowRight size={18} />
           </button>
 
         </form>

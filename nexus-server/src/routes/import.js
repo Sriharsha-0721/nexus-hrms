@@ -1,6 +1,6 @@
 import express from 'express';
 import multer from 'multer';
-import { importEmployees } from '../controllers/importController.js';
+import { importData, getImportLogs } from '../controllers/importController.js';
 import { verifyToken, requireRole } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -13,7 +13,6 @@ const upload = multer({
     fileSize: 5 * 1024 * 1024 // 5MB limit
   },
   fileFilter: (req, file, cb) => {
-    // Only allow CSV files
     if (file.mimetype === 'text/csv' || file.originalname.endsWith('.csv')) {
       cb(null, true);
     } else {
@@ -22,7 +21,10 @@ const upload = multer({
   }
 });
 
-// CSV Import route (Admin only)
-router.post('/employees', verifyToken, requireRole(['admin']), upload.single('file'), importEmployees);
+// Import history logs (Admin only)
+router.get('/logs', verifyToken, requireRole(['SuperAdmin', 'HRAdmin', 'PayrollAdmin']), getImportLogs);
+
+// Dynamic CSV Import route (verifyToken first so req.user is set, upload file, and then process in importData)
+router.post('/:type', verifyToken, upload.single('file'), importData);
 
 export default router;

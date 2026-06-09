@@ -11,7 +11,9 @@ export const login = async (req, res) => {
 
   try {
     const pool = await connectDB();
-    const result = await pool.request()
+    
+    // 1. Try checking AdminLogins
+    let result = await pool.request()
       .input('email', sql.VarChar, email)
       .query(`
         SELECT m.EmpID AS employee_id, d.EmailID AS email, a.Password AS password_hash, m.FirstName AS first_name, m.LastName AS last_name, a.Role AS role_name, m.Designation AS designation, m.Department AS department
@@ -21,11 +23,28 @@ export const login = async (req, res) => {
         WHERE (LOWER(a.Username) = LOWER(@email) OR LOWER(d.EmailID) = LOWER(@email) OR LOWER(d.UPPID) = LOWER(@email)) AND m.EmpStatus = 'Active' AND a.UserStatus = 'Active'
       `);
 
-    if (result.recordset.length === 0) {
-      return res.status(401).json({ message: 'Invalid email or password.' });
+    let user;
+    if (result.recordset.length > 0) {
+      user = result.recordset[0];
+    } else {
+      // 2. If not admin, check EmployeeLogins
+      result = await pool.request()
+        .input('email', sql.VarChar, email)
+        .query(`
+          SELECT m.EmpID AS employee_id, d.EmailID AS email, e.Password AS password_hash, m.FirstName AS first_name, m.LastName AS last_name, 'employee' AS role_name, m.Designation AS designation, m.Department AS department
+          FROM dbo.EmployeeLogins e
+          JOIN dbo.EmployeeMaster m ON e.EmpID = m.EmpID
+          LEFT JOIN dbo.EmployeeDetails d ON m.EmpID = d.EmpID
+          WHERE (LOWER(e.Username) = LOWER(@email) OR LOWER(d.EmailID) = LOWER(@email) OR LOWER(d.UPPID) = LOWER(@email)) AND m.EmpStatus = 'Active' AND e.UserStatus = 'Active'
+        `);
+      if (result.recordset.length > 0) {
+        user = result.recordset[0];
+      }
     }
 
-    const user = result.recordset[0];
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid email or password.' });
+    }
 
     // Check if account has been activated
     if (!user.password_hash) {
@@ -72,7 +91,9 @@ export const login = async (req, res) => {
 export const getMe = async (req, res) => {
   try {
     const pool = await connectDB();
-    const result = await pool.request()
+    
+    // Try AdminLogins first
+    let result = await pool.request()
       .input('id', sql.Int, req.user.id)
       .query(`
         SELECT m.EmpID AS employee_id, d.EmailID AS email, m.FirstName AS first_name, m.LastName AS last_name, a.Role AS role_name, m.Designation AS designation, m.Department AS department
@@ -82,11 +103,29 @@ export const getMe = async (req, res) => {
         WHERE m.EmpID = @id AND m.EmpStatus = 'Active' AND a.UserStatus = 'Active'
       `);
 
-    if (result.recordset.length === 0) {
+    let user;
+    if (result.recordset.length > 0) {
+      user = result.recordset[0];
+    } else {
+      // Try EmployeeLogins
+      result = await pool.request()
+        .input('id', sql.Int, req.user.id)
+        .query(`
+          SELECT m.EmpID AS employee_id, d.EmailID AS email, m.FirstName AS first_name, m.LastName AS last_name, 'employee' AS role_name, m.Designation AS designation, m.Department AS department
+          FROM dbo.EmployeeLogins e
+          JOIN dbo.EmployeeMaster m ON e.EmpID = m.EmpID
+          LEFT JOIN dbo.EmployeeDetails d ON m.EmpID = d.EmpID
+          WHERE m.EmpID = @id AND m.EmpStatus = 'Active' AND e.UserStatus = 'Active'
+        `);
+      if (result.recordset.length > 0) {
+        user = result.recordset[0];
+      }
+    }
+
+    if (!user) {
       return res.status(404).json({ message: 'User not found.' });
     }
 
-    const user = result.recordset[0];
     res.json({
       user: {
         id: user.employee_id,
