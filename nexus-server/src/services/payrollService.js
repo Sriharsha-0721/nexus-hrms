@@ -183,12 +183,12 @@ export const payrollService = {
       
       try {
         const transporter = nodemailer.createTransport({
-          host: 'smtp.gmail.com',
-          port: 587,
-          secure: false,
+          host: process.env.SMTP_HOST || 'smtp.gmail.com',
+          port: parseInt(process.env.SMTP_PORT, 10) || 587,
+          secure: process.env.SMTP_PORT === '465',
           auth: {
-            user: 'sriharshabobbi52@gmail.com',
-            pass: 'mqia tysi lgcr kbmo'
+            user: process.env.SMTP_USER || 'sriharshabobbi52@gmail.com',
+            pass: process.env.SMTP_PASSWORD || 'mqia tysi lgcr kbmo'
           },
           connectionTimeout: 5000,
           socketTimeout: 5000,
@@ -198,7 +198,7 @@ export const payrollService = {
         });
 
         const mailOptions = {
-          from: '"Nexus HRMS Payroll" <sriharshabobbi52@gmail.com>',
+          from: `"Nexus HRMS Payroll" <${process.env.SMTP_USER || 'sriharshabobbi52@gmail.com'}>`,
           to: adminEmail,
           subject: 'Nexus HRMS - Payroll Approval OTP',
           html: `
@@ -791,10 +791,16 @@ export const payrollService = {
                p.EmployeeName AS employee_name, p.Designation AS designation, p.Department AS department,
                p.PFNo AS pf_no, p.IFSC AS ifsc, p.BankName AS bank_name, p.BankAccountNo AS bank_account_no, p.ITPAN AS pan, p.UANNo AS uan_no,
                p.AbsentDays AS absent_days, p.UnpaidLeaveDays AS unpaid_leave_days,
-               m.DOJ AS join_date, d.UPPID AS legacy_emp_id
+               m.DOJ AS join_date, m.EmpStatus AS employee_status, d.UPPID AS legacy_emp_id, 
+               d.OfficialEmail AS official_email,
+               mgr.FirstName + ' ' + mgr.LastName AS manager_name,
+               run.Version AS payroll_version, run.RunDate AS release_date
         FROM dbo.EmployeeSalarysDetails p
         JOIN dbo.EmployeeMaster m ON p.EmpID = m.EmpID
         LEFT JOIN dbo.EmployeeDetails d ON m.EmpID = d.EmpID
+        LEFT JOIN dbo.EmployeeReporting rep ON p.EmpID = rep.EmployeeEmpID
+        LEFT JOIN dbo.EmployeeMaster mgr ON rep.ManagerEmpID = mgr.EmpID
+        LEFT JOIN dbo.PayrollRuns run ON p.RunID = run.RunID
         WHERE p.SalaryID = @payrollId
       `);
 

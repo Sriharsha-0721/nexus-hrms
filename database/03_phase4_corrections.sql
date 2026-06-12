@@ -34,3 +34,16 @@ BEGIN
     );
 END
 GO
+
+-- 5. Drop old unique constraint on EmployeeSalarysDetails and add versioned unique constraint
+IF EXISTS (SELECT * FROM sys.objects WHERE name = 'UQ_Employee_Salary_Period' AND parent_object_id = OBJECT_ID('dbo.EmployeeSalarysDetails'))
+BEGIN
+    ALTER TABLE dbo.EmployeeSalarysDetails DROP CONSTRAINT UQ_Employee_Salary_Period;
+END
+GO
+
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE name = 'UQ_Employee_Salary_Period_Run' AND parent_object_id = OBJECT_ID('dbo.EmployeeSalarysDetails'))
+BEGIN
+    ALTER TABLE dbo.EmployeeSalarysDetails ADD CONSTRAINT UQ_Employee_Salary_Period_Run UNIQUE (EmpID, SalaryMonth, SalaryYear, RunID);
+END
+GO

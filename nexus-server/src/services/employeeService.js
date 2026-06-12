@@ -1,5 +1,6 @@
 import { connectDB, sql } from '../config/db.js';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const VALID_ROLES = ['admin', 'employee'];
@@ -78,7 +79,7 @@ export const employeeService = {
     const result = await pool.request()
       .input('id', sql.Int, id)
       .query(`
-        SELECT m.EmpID AS employee_id, d.UPPID AS legacy_emp_id, d.EmailID AS email, 
+        SELECT m.EmpID AS employee_id, d.UPPID AS legacy_emp_id, d.EmailID AS email, d.PersonalEmail AS personal_email,
                m.FirstName AS first_name, m.LastName AS last_name, 
                COALESCE(des.DesignationName, m.Designation) AS designation, 
                COALESCE(dept.DepartmentName, m.Department) AS department, 
@@ -113,6 +114,7 @@ export const employeeService = {
       id: row.employee_id,
       legacyEmpId: row.legacy_emp_id,
       email: row.email,
+      personalEmail: row.personal_email,
       firstName: row.first_name,
       lastName: row.last_name,
       role: roleName,
@@ -207,7 +209,7 @@ export const employeeService = {
       }
 
       // 2. Hash temporary password
-      const tempPassword = 'Temp@123';
+      const tempPassword = crypto.randomBytes(4).toString('hex');
       const salt = bcrypt.genSaltSync(10);
       const passwordHash = bcrypt.hashSync(tempPassword, salt);
 
@@ -360,7 +362,7 @@ export const employeeService = {
 
   updateEmployee: async (id, data, currentUserRole, actorEmpId = null) => {
     const { 
-      email, firstName, lastName, designationId, departmentId, status, phone, password, legacyEmpId,
+      email, personalEmail, firstName, lastName, designationId, departmentId, status, phone, password, legacyEmpId,
       dob, gender, address, bankName, bankAccountNo, ifscCode,
       maritalStatus, nationality, employmentType, aadharNo, panNo, uanNo,
       emergencyContactName, emergencyContactPhone, managerId, hrAdminId
@@ -460,6 +462,7 @@ export const employeeService = {
       await transaction.request()
         .input('id', sql.Int, id)
         .input('email', sql.VarChar, email !== undefined ? email : null)
+        .input('personalEmail', sql.VarChar, personalEmail !== undefined ? personalEmail : null)
         .input('fullName', sql.VarChar, fullName)
         .input('phone', sql.VarChar, phone !== undefined ? phone : null)
         .input('legacyEmpId', sql.VarChar, legacyEmpId !== undefined ? legacyEmpId : null)
@@ -480,6 +483,7 @@ export const employeeService = {
         .query(`
           UPDATE dbo.EmployeeDetails
           SET EmailID = COALESCE(@email, EmailID),
+              PersonalEmail = COALESCE(@personalEmail, PersonalEmail),
               FullName = COALESCE(@fullName, FullName),
               Phone = COALESCE(@phone, Phone),
               UPPID = COALESCE(@legacyEmpId, UPPID),

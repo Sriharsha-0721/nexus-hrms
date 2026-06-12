@@ -41,6 +41,15 @@ const EmployeeLeave = () => {
     e.preventDefault();
     setSubmitLoading(true);
     setSubmitError(null);
+
+    const s = new Date(startDate);
+    const d = new Date(endDate);
+    if (s.getDay() === 0 || s.getDay() === 6 || d.getDay() === 0 || d.getDay() === 6) {
+      setSubmitError('Saturday and Sunday are weekoffs and cannot be selected as start or end dates.');
+      setSubmitLoading(false);
+      return;
+    }
+
     try {
       await api.post('/leaves/apply', { leaveType, startDate, endDate, reason });
       setIsApplyModalOpen(false);
@@ -230,7 +239,17 @@ const EmployeeLeave = () => {
                       type="date"
                       required
                       value={startDate}
-                      onChange={e => setStartDate(e.target.value)}
+                      onChange={e => {
+                        const val = e.target.value;
+                        const date = new Date(val);
+                        const day = date.getDay();
+                        if (day === 0 || day === 6) {
+                          setSubmitError('Saturday and Sunday are weekoffs and cannot be selected.');
+                          return;
+                        }
+                        setSubmitError(null);
+                        setStartDate(val);
+                      }}
                       style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
                     />
                   </div>
@@ -240,7 +259,17 @@ const EmployeeLeave = () => {
                       type="date"
                       required
                       value={endDate}
-                      onChange={e => setEndDate(e.target.value)}
+                      onChange={e => {
+                        const val = e.target.value;
+                        const date = new Date(val);
+                        const day = date.getDay();
+                        if (day === 0 || day === 6) {
+                          setSubmitError('Saturday and Sunday are weekoffs and cannot be selected.');
+                          return;
+                        }
+                        setSubmitError(null);
+                        setEndDate(val);
+                      }}
                       style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }}
                     />
                   </div>

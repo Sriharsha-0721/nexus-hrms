@@ -3,8 +3,10 @@ import { Camera, Mail, Phone, MapPin, Briefcase, Calendar, Shield, Save, Key, Us
 import { useState, useEffect } from 'react';
 import api from '../../Services/api.js';
 import authService from '../../Services/authService.js';
+import { useToast } from '../../Shared/ToastContext';
 
 const Profile = () => {
+  const { showToast } = useToast();
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -25,6 +27,7 @@ const Profile = () => {
     firstName: '',
     lastName: '',
     email: '',
+    personalEmail: '',
     phone: '',
     address: '',
     legacyEmpId: '',
@@ -74,7 +77,7 @@ const Profile = () => {
       if (userRole === 'admin') {
         // Admins can update their own profile directly
         await api.put(`/employees/${profileData.id}`, profileData);
-        alert('Profile updated successfully.');
+        showToast('Profile updated successfully.', 'success');
       } else {
         // Employees submit a change request
         // Identify edited fields to only submit changes, or submit all for simple comparison
@@ -82,6 +85,7 @@ const Profile = () => {
           firstName: profileData.firstName,
           lastName: profileData.lastName,
           email: profileData.email,
+          personalEmail: profileData.personalEmail,
           phone: profileData.phone,
           address: profileData.address,
           dob: profileData.dob,
@@ -98,19 +102,19 @@ const Profile = () => {
           emergencyContactPhone: profileData.emergencyContactPhone
         };
         await api.post('/profile-requests', requestedFields);
-        alert('Profile update request has been submitted to the administrator for approval.');
+        showToast('Profile update request has been submitted to the administrator for approval.', 'success');
       }
       setIsEditing(false);
       fetchProfile();
     } catch (err) {
-      alert(err.message || 'Failed to process request');
+      showToast(err.message || 'Failed to process request', 'error');
     }
   };
 
   const handleChangePassword = async (e) => {
     e.preventDefault();
     if (passwordState.newPassword !== passwordState.confirmPassword) {
-      alert('New password and confirm password do not match.');
+      showToast('New password and confirm password do not match.', 'error');
       return;
     }
     try {
@@ -118,10 +122,10 @@ const Profile = () => {
       await api.post('/auth/change-password', {
         newPassword: passwordState.newPassword
       });
-      alert('Password has been changed successfully.');
+      showToast('Password has been changed successfully.', 'success');
       setPasswordState({ newPassword: '', confirmPassword: '' });
     } catch (err) {
-      alert(err.message || 'Failed to change password');
+      showToast(err.message || 'Failed to change password', 'error');
     } finally {
       setIsChangingPassword(false);
     }
@@ -200,6 +204,12 @@ const Profile = () => {
                 <Mail size={18} color="var(--accent-primary)" style={{ flexShrink: 0 }} /> 
                 <span style={{ wordBreak: 'break-all' }}>{profileData.email}</span>
               </div>
+              {profileData.personalEmail && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                  <Mail size={18} color="var(--accent-primary)" style={{ flexShrink: 0, opacity: 0.7 }} /> 
+                  <span style={{ wordBreak: 'break-all' }}>{profileData.personalEmail} <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>(Personal)</span></span>
+                </div>
+              )}
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
                 <Phone size={18} color="var(--accent-primary)" style={{ flexShrink: 0 }} /> 
                 {profileData.phone || 'N/A'}
@@ -291,6 +301,10 @@ const Profile = () => {
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Email Address</label>
                 <input type="email" name="email" value={profileData.email} onChange={handleInputChange} disabled={!isEditing || userRole !== 'admin'} style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: (isEditing && userRole === 'admin') ? 'var(--bg-primary)' : 'var(--bg-tertiary)', color: 'var(--text-primary)', outline: 'none', cursor: (isEditing && userRole === 'admin') ? 'text' : 'not-allowed' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Personal Email (For Recovery)</label>
+                <input type="email" name="personalEmail" value={profileData.personalEmail || ''} onChange={handleInputChange} disabled={!isEditing} style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: isEditing ? 'var(--bg-primary)' : 'var(--bg-tertiary)', color: 'var(--text-primary)', outline: 'none' }} />
               </div>
               <div>
                 <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Phone Number</label>

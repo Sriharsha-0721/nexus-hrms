@@ -9,15 +9,14 @@
  * @returns {string} The formatted INR string.
  */
 export const formatINR = (value) => {
-  if (value === undefined || value === null) return '₹0';
+  if (value === undefined || value === null) return '₹0.00';
   const num = typeof value === 'string' ? parseFloat(value) : value;
-  if (isNaN(num)) return '₹0';
+  if (isNaN(num)) return '₹0.00';
   
   const absoluteValue = Math.abs(num);
-  const hasDecimals = absoluteValue % 1 !== 0;
   const formattedNum = absoluteValue.toLocaleString('en-IN', {
-    maximumFractionDigits: hasDecimals ? 2 : 0,
-    minimumFractionDigits: hasDecimals ? 2 : 0
+    maximumFractionDigits: 2,
+    minimumFractionDigits: 2
   });
   
   return num < 0 ? `-₹${formattedNum}` : `₹${formattedNum}`;

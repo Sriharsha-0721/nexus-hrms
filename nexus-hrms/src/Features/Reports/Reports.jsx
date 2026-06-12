@@ -3,8 +3,10 @@ import { motion } from 'framer-motion';
 import { BarChart2, Users, PieChart, RefreshCw, Calendar, Clock, TrendingUp, UserMinus, Filter } from 'lucide-react';
 import api from '../../Services/api.js';
 import { formatINR } from '../../Services/formatters.js';
+import { useToast } from '../../Shared/ToastContext';
 
 const Reports = () => {
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState('payroll-monthly');
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState([]);
@@ -48,7 +50,7 @@ const Reports = () => {
       a.click();
       a.remove();
     } catch (err) {
-      alert(`Failed to export ${format}`);
+      showToast(`Failed to export ${format}`, 'error');
     }
   };
 

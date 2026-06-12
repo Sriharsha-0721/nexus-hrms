@@ -8,6 +8,7 @@ import {
 import api from '../../Services/api.js';
 import { formatINR } from '../../Services/formatters.js';
 import EmployeePayroll from './EmployeePayroll.jsx';
+import { useToast } from '../../Shared/ToastContext';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Inline status banner (replaces all alert() calls)
@@ -35,6 +36,7 @@ const Banner = ({ type, message, onClose }) => {
 };
 
 const Payroll = () => {
+  const { showToast } = useToast();
   const [downloadLoading, setDownloadLoading] = useState(false);
 
   const handleDownloadPdf = async (payrollId) => {
@@ -233,7 +235,7 @@ const Payroll = () => {
       a.click();
       a.remove();
     } catch (err) {
-      alert(`Failed to download summary ${format}`);
+      showToast(`Failed to download summary ${format}`, 'error');
     } finally {
       setDownloadLoading(false);
     }

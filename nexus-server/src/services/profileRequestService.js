@@ -123,7 +123,7 @@ export const profileRequestService = {
 
         // Update EmployeeDetails fields if provided
         const detailsFields = [
-          'fullName', 'dob', 'gender', 'address', 'phone', 'email',
+          'fullName', 'dob', 'gender', 'address', 'phone', 'email', 'personalEmail',
           'maritalStatus', 'nationality', 'employmentType',
           'aadharNo', 'panNo', 'uanNo', 'emergencyContactName', 'emergencyContactPhone',
           'bankName', 'bankAccountNo', 'ifscCode'

@@ -15,6 +15,8 @@ import Reports from './Features/Reports/Reports';
 import AdminSettings from './Features/Admin/AdminSettings';
 import AdminManagement from './Features/Admin/AdminManagement';
 
+import { ToastProvider } from './Shared/ToastContext';
+
 // Employee Features
 import Profile from './Features/Profile/Profile';
 import EmployeeDashboard from './Features/EmployeeDashboard/EmployeeDashboard';
@@ -24,36 +26,38 @@ import EmployeePayroll from './Features/Payroll/EmployeePayroll';
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route element={<AuthLayout />}>
-          <Route path="/login" element={<Login />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-        </Route>
+    <ToastProvider>
+      <Router>
+        <Routes>
+          <Route element={<AuthLayout />}>
+            <Route path="/login" element={<Login />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+          </Route>
 
-        <Route element={<MainLayout />}>
-          <Route path="/" element={<Navigate to="/login" replace />} />
-          
-          {/* Admin Routes */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/employees" element={<EmployeeList />} />
-          <Route path="/attendance" element={<Attendance />} />
-          <Route path="/leave" element={<Leave />} />
-          <Route path="/payroll" element={<Payroll />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/admin" element={<AdminSettings />} />
-          <Route path="/admin-management" element={<AdminManagement />} />
-          
-          {/* Employee Routes */}
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/my-dashboard" element={<EmployeeDashboard />} />
-          <Route path="/my-attendance" element={<EmployeeAttendance />} />
-          <Route path="/my-leave" element={<EmployeeLeave />} />
-          <Route path="/my-payroll" element={<EmployeePayroll />} />
-        </Route>
-      </Routes>
-    </Router>
+          <Route element={<MainLayout />}>
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            
+            {/* Admin Routes */}
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/employees" element={<EmployeeList />} />
+            <Route path="/attendance" element={<Attendance />} />
+            <Route path="/leave" element={<Leave />} />
+            <Route path="/payroll" element={<Payroll />} />
+            <Route path="/reports" element={<Reports />} />
+            <Route path="/admin" element={<AdminSettings />} />
+            <Route path="/admin-management" element={<AdminManagement />} />
+            
+            {/* Employee Routes */}
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/my-dashboard" element={<EmployeeDashboard />} />
+            <Route path="/my-attendance" element={<EmployeeAttendance />} />
+            <Route path="/my-leave" element={<EmployeeLeave />} />
+            <Route path="/my-payroll" element={<EmployeePayroll />} />
+          </Route>
+        </Routes>
+      </Router>
+    </ToastProvider>
   );
 }
 

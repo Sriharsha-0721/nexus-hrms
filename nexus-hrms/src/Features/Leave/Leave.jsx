@@ -2,8 +2,10 @@ import { motion } from 'framer-motion';
 import { Check, X, Calendar, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import api from '../../Services/api.js';
+import { useToast } from '../../Shared/ToastContext';
 
 const Leave = () => {
+  const { showToast } = useToast();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -29,10 +31,10 @@ const Leave = () => {
   const handleApproveReject = async (leaveId, status) => {
     try {
       await api.post('/leaves/approve', { leaveId, status });
-      alert(`Leave request has been ${status.toLowerCase()} successfully.`);
+      showToast(`Leave request has been ${status.toLowerCase()} successfully.`, 'success');
       fetchRequests();
     } catch (err) {
-      alert(err.message || 'Operation failed.');
+      showToast(err.message || 'Operation failed.', 'error');
     }
   };
 

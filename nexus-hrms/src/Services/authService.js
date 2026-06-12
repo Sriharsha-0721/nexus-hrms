@@ -40,6 +40,12 @@ export const authService = {
     return await api.post('/auth/forgot-password', { email });
   },
 
+  // Reset Password
+  resetPassword: async ({ email, otp, newPassword }) => {
+    if (!email || !otp || !newPassword) throw new Error('All fields are required');
+    return await api.post('/auth/reset-password', { email, otp, newPassword });
+  },
+
 };
 
 export default authService;

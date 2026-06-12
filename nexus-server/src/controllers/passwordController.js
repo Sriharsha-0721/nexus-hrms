@@ -1,5 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { connectDB, sql } from '../config/db.js';
+import nodemailer from 'nodemailer';
+import dns from 'dns';
 
 export const changePassword = async (req, res) => {
   const { newPassword } = req.body;
@@ -113,13 +115,50 @@ export const forgotPassword = async (req, res) => {
         VALUES (@empId, @hash, DATEADD(minute, 15, GETDATE()))
       `);
 
-    // Simulate sending email
-    console.log('\n========================================================================');
-    console.log(`[EMAIL SIMULATION] Sending password recovery OTP to PersonalEmail`);
-    console.log(`To: ${FullName} <${PersonalEmail}>`);
-    console.log(`Subject: Password Reset OTP`);
-    console.log(`Body: Your OTP for password recovery is ${otp}. Valid for 15 minutes.`);
-    console.log('========================================================================\n');
+    // Send actual email using nodemailer
+    try {
+      const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.SMTP_PORT, 10) || 587,
+        secure: process.env.SMTP_PORT === '465',
+        auth: {
+          user: process.env.SMTP_USER || 'sriharshabobbi52@gmail.com',
+          pass: process.env.SMTP_PASSWORD || 'mqia tysi lgcr kbmo'
+        },
+        connectionTimeout: 5000,
+        socketTimeout: 5000,
+        lookup: (hostname, options, callback) => {
+          dns.lookup(hostname, { family: 4 }, callback);
+        }
+      });
+
+      const mailOptions = {
+        from: `"Nexus HRMS Support" <${process.env.SMTP_USER || 'sriharshabobbi52@gmail.com'}>`,
+        to: PersonalEmail,
+        subject: 'Nexus HRMS - Password Recovery OTP',
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+            <h2 style="color: #2563EB;">Password Recovery OTP</h2>
+            <p>Hi ${FullName},</p>
+            <p>You have requested to reset your password. Please use the OTP below to verify your identity and complete the process.</p>
+            <p>Your One-Time Password (OTP) is:</p>
+            <div style="font-size: 32px; font-weight: bold; color: #1e293b; letter-spacing: 5px; margin: 20px 0; padding: 10px; background: #f1f5f9; text-align: center; border-radius: 8px;">
+              ${otp}
+            </div>
+            <p style="color: #64748b; font-size: 14px;">This OTP will expire in 15 minutes.</p>
+            <p>If you did not request this action, please secure your account immediately.</p>
+          </div>
+        `
+      };
+
+      await transporter.sendMail(mailOptions);
+      console.log(`[SMTP] Successfully sent password recovery OTP email to ${PersonalEmail}`);
+    } catch (emailErr) {
+      console.error('[SMTP] Failed to send password recovery OTP email:', emailErr);
+      return res.status(500).json({ 
+        message: 'Failed to send password recovery OTP email. Please check your SMTP configuration or try again later.' 
+      });
+    }
 
     // Write audit log
     await pool.request()

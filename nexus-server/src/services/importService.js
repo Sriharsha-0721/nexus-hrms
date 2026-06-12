@@ -189,7 +189,7 @@ export const importService = {
               VALUES (@empId, @fullName, @email, @phone, @legacyId, 'Full-time')
             `);
 
-          const tempPassword = 'Temp@123';
+          const tempPassword = crypto.randomBytes(4).toString('hex');
           const salt = bcrypt.genSaltSync(10);
           const passwordHash = bcrypt.hashSync(tempPassword, salt);
 

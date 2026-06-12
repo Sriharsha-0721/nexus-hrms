@@ -16,8 +16,10 @@ import {
   Plus
 } from 'lucide-react';
 import api from '../../Services/api.js';
+import { useToast } from '../../Shared/ToastContext';
 
 const Attendance = () => {
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -51,9 +53,10 @@ const Attendance = () => {
   const handleStatusChange = async (leaveId, newStatus) => {
     try {
       await api.post('/leaves/approve', { leaveId, status: newStatus });
+      showToast(`Leave request ${newStatus.toLowerCase()} successfully.`, 'success');
       await fetchData();
     } catch (err) {
-      alert(err.message || 'Failed to update leave request status.');
+      showToast(err.message || 'Failed to update leave request status.', 'error');
     }
   };
 

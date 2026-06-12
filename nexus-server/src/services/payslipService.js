@@ -2,22 +2,88 @@ import PDFDocument from 'pdfkit';
 import path from 'path';
 import { connectDB, sql } from '../config/db.js';
 
+const formatCurrency = (val) => {
+  if (val === undefined || val === null) return '₹0.00';
+  return '₹' + Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+const numberToWords = (num) => {
+  const a = [
+    '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+    'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'
+  ];
+  const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+  const convertLessThanOneThousand = (n) => {
+    if (n === 0) return '';
+    let str = '';
+    if (n >= 100) {
+      str += a[Math.floor(n / 100)] + ' Hundred ';
+      n %= 100;
+    }
+    if (n > 0) {
+      if (n < 20) {
+        str += a[n];
+      } else {
+        str += b[Math.floor(n / 10)];
+        if (n % 10 > 0) {
+          str += ' ' + a[n % 10];
+        }
+      }
+    }
+    return str.trim();
+  };
+
+  let n = Math.floor(num);
+  if (n === 0) return 'Rupees Zero Only';
+
+  let crore = Math.floor(n / 10000000);
+  n %= 10000000;
+  let lakh = Math.floor(n / 100000);
+  n %= 100000;
+  let thousand = Math.floor(n / 1000);
+  n %= 1000;
+  let remaining = n;
+
+  let result = '';
+  if (crore > 0) {
+    result += convertLessThanOneThousand(crore) + ' Crore ';
+  }
+  if (lakh > 0) {
+    result += convertLessThanOneThousand(lakh) + ' Lakh ';
+  }
+  if (thousand > 0) {
+    result += convertLessThanOneThousand(thousand) + ' Thousand ';
+  }
+  if (remaining > 0) {
+    result += convertLessThanOneThousand(remaining);
+  }
+
+  return 'Rupees ' + result.trim().replace(/\s+/g, ' ') + ' Only';
+};
+
 export const downloadPayslipPdf = async (payrollId, employeeId, res) => {
   const pool = await connectDB();
   const result = await pool.request()
     .input('payrollId', sql.Int, payrollId)
     .query(`
        SELECT p.EmpID, p.SalaryMonth, p.SalaryYear, p.DaysInMonth, p.DaysPaid, p.LossOfPay, p.BasicSalary, p.HouseRentAllowance, p.SpecialAllowance, p.MedicalAllowance, p.ConveyanceAllowance, p.OtherAllowance, p.TotalEarnings, p.ProvidentFund, p.ProfessionalTax, p.TDS, p.TotalDeductions, p.NetSalaryPaid, p.PaymentStatus,
-              e.FullName, e.PANNo, e.AadharNo, e.UANNo, e.EmailID AS PersonalEmail, e.BankName, e.BankAccountNo, e.IFSCCode,
+              e.FullName, e.PANNo, e.AadharNo, e.UANNo, e.EmailID AS PersonalEmail, e.BankName, e.BankAccountNo, e.IFSCCode, e.OfficialEmail,
               COALESCE(NULLIF(m.Designation, ''), desig.DesignationName) AS Designation, 
               COALESCE(NULLIF(m.Department, ''), dept.DepartmentName) AS Department, 
-              m.DOJ
-      FROM dbo.EmployeeSalarysDetails p
-      LEFT JOIN dbo.EmployeeDetails e ON p.EmpID = e.EmpID
-      LEFT JOIN dbo.EmployeeMaster m ON p.EmpID = m.EmpID
-      LEFT JOIN dbo.Departments dept ON m.DepartmentID = dept.DepartmentID
-      LEFT JOIN dbo.Designations desig ON m.DesignationID = desig.DesignationID
-      WHERE p.SalaryID = @payrollId
+              m.DOJ, m.EmpStatus AS EmployeeStatus,
+              mgr.FirstName + ' ' + mgr.LastName AS ManagerName,
+              run.Version AS PayrollVersion, run.RunDate AS ReleaseDate,
+              p.AbsentDays, p.UnpaidLeaveDays
+       FROM dbo.EmployeeSalarysDetails p
+       LEFT JOIN dbo.EmployeeDetails e ON p.EmpID = e.EmpID
+       LEFT JOIN dbo.EmployeeMaster m ON p.EmpID = m.EmpID
+       LEFT JOIN dbo.Departments dept ON m.DepartmentID = dept.DepartmentID
+       LEFT JOIN dbo.Designations desig ON m.DesignationID = desig.DesignationID
+       LEFT JOIN dbo.EmployeeReporting rep ON p.EmpID = rep.EmployeeEmpID
+       LEFT JOIN dbo.EmployeeMaster mgr ON rep.ManagerEmpID = mgr.EmpID
+       LEFT JOIN dbo.PayrollRuns run ON p.RunID = run.RunID
+       WHERE p.SalaryID = @payrollId
     `);
 
   if (result.recordset.length === 0) {
@@ -59,22 +125,24 @@ export const downloadPayslipPdf = async (payrollId, employeeId, res) => {
 
   // Employee details grid
   doc.fontSize(9);
-  let startY = 185;
+  let startY = 180;
   const col1 = 40;
-  const col2 = 140;
+  const col2 = 145;
   const col3 = 300;
-  const col4 = 400;
-  const lineHeight = 18;
+  const col4 = 405;
+  const lineHeight = 16;
 
-  const dojFormatted = data.DOJ ? new Date(data.DOJ).toLocaleDateString() : '-';
+  const dojFormatted = data.DOJ ? new Date(data.DOJ).toLocaleDateString('en-GB') : '-';
 
   const details = [
     { k1: 'Employee Name', v1: data.FullName, k2: 'Employee ID', v2: data.EmpID },
-    { k1: 'Designation', v1: data.Designation, k2: 'Department', v2: data.Department },
+    { k1: 'Designation', v1: data.Designation || '-', k2: 'Department', v2: data.Department || '-' },
+    { k1: 'Date of Joining', v1: dojFormatted, k2: 'Employee Status', v2: data.EmployeeStatus || 'Active' },
+    { k1: 'Official Email', v1: data.OfficialEmail || '-', k2: 'Reporting Manager', v2: data.ManagerName || '-' },
     { k1: 'PAN', v1: data.PANNo || '-', k2: 'UAN', v2: data.UANNo || '-' },
     { k1: 'Bank', v1: data.BankName || '-', k2: 'Account No', v2: data.BankAccountNo || '-' },
-    { k1: 'Days Paid', v1: `${data.DaysPaid} / ${data.DaysInMonth} Days`, k2: 'L.O.P. / Absent Days', v2: `${data.LossOfPay} / 0` },
-    { k1: 'Payment Status', v1: data.PaymentStatus || 'Paid', k2: 'Payment Date', v2: new Date().toLocaleDateString() }
+    { k1: 'Payroll Month', v1: salaryMonthName, k2: 'Payroll Year', v2: String(data.SalaryYear) },
+    { k1: 'Payroll Run Version', v1: data.PayrollVersion ? `v${data.PayrollVersion}` : 'v1', k2: 'Payment Status', v2: data.PaymentStatus || 'Paid' }
   ];
 
   details.forEach((row, i) => {
@@ -85,10 +153,46 @@ export const downloadPayslipPdf = async (payrollId, employeeId, res) => {
     doc.fillColor('#0F172A').text(row.v2, col4, y);
   });
 
-  doc.y = startY + (details.length * lineHeight) + 20;
+  // Attendance details block
+  const attY = startY + (details.length * lineHeight) + 10;
+  doc.rect(40, attY, 515, 35).fill('#F8FAFC').strokeColor('#E2E8F0').lineWidth(1).stroke();
+  
+  doc.fontSize(8).fillColor('#64748B');
+  doc.text('Calendar Days', 50, attY + 8);
+  doc.text('Present Days', 130, attY + 8);
+  doc.text('Absent Days', 210, attY + 8);
+  doc.text('LOP Days', 290, attY + 8);
+  doc.text('Paid Days', 370, attY + 8);
+  doc.text('Attendance %', 450, attY + 8);
+  
+  const calendarDays = data.DaysInMonth || 30;
+  const rawLop = data.LossOfPay || 0;
+  let lopDays = 0;
+  let lopAmount = 0;
+  
+  if (rawLop > 31) {
+    lopAmount = rawLop;
+    lopDays = (data.AbsentDays || 0) + (data.UnpaidLeaveDays || 0);
+  } else {
+    lopDays = rawLop;
+    lopAmount = 0;
+  }
+  
+  const paidDays = data.DaysPaid || (calendarDays - lopDays);
+  const presentDays = paidDays; 
+  const absentDays = lopDays;   
+  const attPercent = ((paidDays / calendarDays) * 100).toFixed(2) + '%';
+
+  doc.fontSize(9).fillColor('#0F172A');
+  doc.text(String(calendarDays), 50, attY + 20);
+  doc.text(String(presentDays), 130, attY + 20);
+  doc.text(String(absentDays), 210, attY + 20);
+  doc.text(String(lopDays), 290, attY + 20);
+  doc.text(String(paidDays), 370, attY + 20);
+  doc.text(attPercent, 450, attY + 20);
 
   // Table Headers
-  let tableY = doc.y;
+  let tableY = attY + 45;
   doc.rect(40, tableY, 515, 25).fill('#1E293B');
   doc.fillColor('#FFFFFF').fontSize(10);
   doc.text('EARNINGS', 50, tableY + 8);
@@ -112,7 +216,7 @@ export const downloadPayslipPdf = async (payrollId, employeeId, res) => {
   const deductions = [
     ['Provident Fund', data.ProvidentFund],
     ['Professional Tax', data.ProfessionalTax],
-    ['Loss of Pay (LOP)', data.LOPAmount || 0],
+    ['Loss of Pay (LOP)', lopAmount],
     ['TDS', data.TDS]
   ];
 
@@ -130,13 +234,13 @@ export const downloadPayslipPdf = async (payrollId, employeeId, res) => {
     // Earnings
     if (earnings[i]) {
       doc.text(earnings[i][0], 50, y + 8);
-      doc.text(`₹ ${Number(earnings[i][1]).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 200, y + 8, { width: 90, align: 'right' });
+      doc.text(formatCurrency(earnings[i][1]), 200, y + 8, { width: 90, align: 'right' });
     }
     
     // Deductions
     if (deductions[i]) {
       doc.text(deductions[i][0], 310, y + 8);
-      doc.text(`₹ ${Number(deductions[i][1]).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 450, y + 8, { width: 90, align: 'right' });
+      doc.text(formatCurrency(deductions[i][1]), 450, y + 8, { width: 90, align: 'right' });
     }
     
     // Left and right border and middle line for table
@@ -151,23 +255,50 @@ export const downloadPayslipPdf = async (payrollId, employeeId, res) => {
   
   doc.fillColor('#0F172A').font('NotoSans');
   doc.text('Gross Earnings', 50, grossY + 10);
-  doc.text(`₹ ${Number(data.TotalEarnings).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 200, grossY + 10, { width: 90, align: 'right' });
+  doc.text(formatCurrency(data.TotalEarnings), 200, grossY + 10, { width: 90, align: 'right' });
   
   doc.text('Total Deductions', 310, grossY + 10);
-  doc.text(`₹ ${Number(data.TotalDeductions).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 450, grossY + 10, { width: 90, align: 'right' });
+  doc.text(formatCurrency(data.TotalDeductions), 450, grossY + 10, { width: 90, align: 'right' });
 
   // Border wrapper for total
   doc.rect(40, tableY, 515, 100).strokeColor('#CBD5E1').lineWidth(1).stroke();
 
-  // Net Pay Bottom Banner
-  const netY = grossY + 45;
-  doc.rect(40, netY, 515, 40).fill('#2563EB');
-  doc.fillColor('#FFFFFF').fontSize(14).text('NET SALARY:', 60, netY + 12);
-  doc.fontSize(16).text(`₹ ${Number(data.NetSalaryPaid).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 200, netY + 10);
+  // Salary Summary (Derivation Explanation Card)
+  const summaryY = grossY + 40;
+  doc.rect(40, summaryY, 515, 50).fill('#F1F5F9').strokeColor('#CBD5E1').lineWidth(1).stroke();
+  
+  doc.fontSize(8).fillColor('#475569');
+  doc.text('(A) Total Earnings', 55, summaryY + 10);
+  doc.text('(B) Total Deductions', 200, summaryY + 10);
+  doc.text('Net Salary (A - B)', 350, summaryY + 10);
+  
+  doc.fontSize(10).fillColor('#0F172A').font('NotoSans');
+  doc.text(formatCurrency(data.TotalEarnings), 55, summaryY + 22);
+  doc.text(formatCurrency(data.TotalDeductions), 200, summaryY + 22);
+  
+  doc.fontSize(11).fillColor('#2563EB').font('NotoSans');
+  doc.text(formatCurrency(data.NetSalaryPaid), 350, summaryY + 21);
+  
+  doc.fontSize(7.5).fillColor('#64748B').font('NotoSans');
+  doc.text('Net Salary = (Gross Earnings) - (Total Deductions)', 55, summaryY + 38);
+
+  // Net Salary in Words
+  const wordsY = summaryY + 60;
+  doc.fontSize(9).fillColor('#1E293B').font('NotoSans');
+  doc.text(`Amount in Words: ${numberToWords(data.NetSalaryPaid)}`, 40, wordsY);
 
   // Footer
-  doc.y = netY + 80;
-  doc.fillColor('#94A3B8').fontSize(8).text('This is a system generated payslip and does not require a signature.', 40, doc.y, { align: 'center', width: 515 });
+  const footerY = 740;
+  doc.moveTo(40, footerY).lineTo(555, footerY).strokeColor('#E2E8F0').lineWidth(1).stroke();
+  
+  doc.fontSize(8).fillColor('#64748B');
+  doc.text(`Generated By: System Admin`, 40, footerY + 10);
+  doc.text(`Payroll Version: ${data.PayrollVersion ? 'v' + data.PayrollVersion : 'v1'}`, 180, footerY + 10);
+  
+  const releaseDate = data.ReleaseDate ? new Date(data.ReleaseDate).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB');
+  doc.text(`Release Date: ${releaseDate}`, 320, footerY + 10);
+  
+  doc.text('This is a system generated payslip and does not require a signature.', 40, footerY + 25, { align: 'center', width: 515 });
 
   doc.end();
 };

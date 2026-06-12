@@ -632,24 +632,14 @@ const MainLayout = () => {
                         <User size={16} /> View Profile
                       </button>
                       {['SuperAdmin', 'HRAdmin', 'PayrollAdmin'].includes(userRole) && (
-                        <>
-                          <button 
-                            onClick={() => { setIsProfileOpen(false); navigate('/forgot-password'); }}
-                            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0.75rem', background: 'none', border: 'none', color: 'var(--accent-primary)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '0.85rem' }}
-                            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)'}
-                            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                          >
-                            <Key size={16} /> Forgot Password
-                          </button>
-                          <button 
-                            onClick={() => { setIsProfileOpen(false); navigate('/admin'); }}
-                            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0.75rem', background: 'none', border: 'none', color: 'var(--text-primary)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '0.85rem' }}
-                            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)'}
-                            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-                          >
-                            <Settings size={16} /> Settings
-                          </button>
-                        </>
+                        <button 
+                          onClick={() => { setIsProfileOpen(false); navigate('/admin'); }}
+                          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0.75rem', background: 'none', border: 'none', color: 'var(--text-primary)', borderRadius: 'var(--radius-md)', cursor: 'pointer', fontSize: '0.85rem' }}
+                          onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-tertiary)'}
+                          onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                        >
+                          <Settings size={16} /> Settings
+                        </button>
                       )}
                     </div>
 

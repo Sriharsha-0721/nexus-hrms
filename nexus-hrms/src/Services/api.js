@@ -1,6 +1,5 @@
-// Relative URL — Vite dev proxy forwards /api/* → http://localhost:5000/api/*
-// This means no CORS issues and no hardcoded ports. Works on any machine.
-const BASE_URL = '/api';
+// Resolve API base URL dynamically for production/development compatibility
+const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 
 const request = async (endpoint, options = {}) => {

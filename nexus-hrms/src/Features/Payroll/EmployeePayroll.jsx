@@ -3,13 +3,74 @@ import { FileText, Download, IndianRupee, Briefcase, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import api from '../../Services/api.js';
 import { formatINR } from '../../Services/formatters.js';
+import { useToast } from '../../Shared/ToastContext';
+
+const numberToWords = (num) => {
+  const a = [
+    '', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten',
+    'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'
+  ];
+  const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+  const convertLessThanOneThousand = (n) => {
+    if (n === 0) return '';
+    let str = '';
+    if (n >= 100) {
+      str += a[Math.floor(n / 100)] + ' Hundred ';
+      n %= 100;
+    }
+    if (n > 0) {
+      if (n < 20) {
+        str += a[n];
+      } else {
+        str += b[Math.floor(n / 10)];
+        if (n % 10 > 0) {
+          str += ' ' + a[n % 10];
+        }
+      }
+    }
+    return str.trim();
+  };
+
+  let n = Math.floor(num);
+  if (n === 0) return 'Rupees Zero Only';
+
+  let crore = Math.floor(n / 10000000);
+  n %= 10000000;
+  let lakh = Math.floor(n / 100000);
+  n %= 100000;
+  let thousand = Math.floor(n / 1000);
+  n %= 1000;
+  let remaining = n;
+
+  let result = '';
+  if (crore > 0) {
+    result += convertLessThanOneThousand(crore) + ' Crore ';
+  }
+  if (lakh > 0) {
+    result += convertLessThanOneThousand(lakh) + ' Lakh ';
+  }
+  if (thousand > 0) {
+    result += convertLessThanOneThousand(thousand) + ' Thousand ';
+  }
+  if (remaining > 0) {
+    result += convertLessThanOneThousand(remaining);
+  }
+
+  return 'Rupees ' + result.trim().replace(/\s+/g, ' ') + ' Only';
+};
 
 const EmployeePayroll = () => {
+  const { showToast } = useToast();
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSlip, setSelectedSlip] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [downloading, setDownloading] = useState(false);
+
+  const rawLop = selectedSlip?.lop ?? 0;
+  const lopAmount = rawLop > 31 ? rawLop : 0;
+  const lopDays = rawLop > 31 ? ((selectedSlip?.absent_days || 0) + (selectedSlip?.unpaid_leave_days || 0)) : rawLop;
 
   const fetchHistory = async () => {
     try {
@@ -41,7 +102,7 @@ const EmployeePayroll = () => {
       setSelectedSlip(data);
       setIsModalOpen(true);
     } catch (err) {
-      alert(err.message || 'Failed to fetch payslip details.');
+      showToast(err.message || 'Failed to fetch payslip details.', 'error');
     }
   };
 
@@ -59,7 +120,7 @@ const EmployeePayroll = () => {
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
-      alert(err.message || 'Failed to download payslip PDF.');
+      showToast(err.message || 'Failed to download payslip PDF.', 'error');
     } finally {
       setDownloading(false);
     }
@@ -201,8 +262,8 @@ const EmployeePayroll = () => {
                 border: '1px solid var(--border-color)',
                 borderRadius: 'var(--radius-lg)',
                 padding: '1.5rem',
-                width: '90%',
-                maxWidth: '520px',
+                width: '95%',
+                maxWidth: '600px',
                 maxHeight: '92vh',
                 overflowY: 'auto',
                 boxShadow: 'var(--shadow-lg)',
@@ -223,36 +284,103 @@ const EmployeePayroll = () => {
               </div>
 
               {/* Payslip details */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: '1fr 1fr', 
+                gap: '0.65rem 1.25rem', 
+                marginBottom: '1.5rem', 
+                fontSize: '0.85rem',
+                borderBottom: '1px solid var(--border-light)',
+                paddingBottom: '1rem'
+              }}>
                 <div>
-                  <strong>Employee:</strong> {selectedSlip.employee_name}
+                  <strong style={{ color: 'var(--text-secondary)' }}>Employee Name:</strong> <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{selectedSlip.employee_name}</span>
                 </div>
                 <div>
-                  <strong>Employee ID:</strong> {selectedSlip.legacy_emp_id || '-'}
+                  <strong style={{ color: 'var(--text-secondary)' }}>Employee ID:</strong> <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{selectedSlip.legacy_emp_id || '-'}</span>
                 </div>
                 <div>
-                  <strong>Department:</strong> {selectedSlip.department || '-'}
+                  <strong style={{ color: 'var(--text-secondary)' }}>Designation:</strong> <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{selectedSlip.designation || '-'}</span>
                 </div>
                 <div>
-                  <strong>Designation:</strong> {selectedSlip.designation || '-'}
+                  <strong style={{ color: 'var(--text-secondary)' }}>Department:</strong> <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{selectedSlip.department || '-'}</span>
                 </div>
                 <div>
-                  <strong>Working Ratio:</strong> {selectedSlip.employee_working_days ?? 30} / {selectedSlip.monthly_working_days ?? 30} days
+                  <strong style={{ color: 'var(--text-secondary)' }}>Date of Joining:</strong> <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{selectedSlip.join_date ? new Date(selectedSlip.join_date).toLocaleDateString('en-GB') : '-'}</span>
                 </div>
                 <div>
-                  <strong>Payment Status:</strong> {selectedSlip.payment_status}
+                  <strong style={{ color: 'var(--text-secondary)' }}>Employee Status:</strong> <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{selectedSlip.employee_status || 'Active'}</span>
                 </div>
                 <div>
-                  <strong>PAN:</strong> {selectedSlip.pan || 'N/A'}
+                  <strong style={{ color: 'var(--text-secondary)' }}>Official Email:</strong> <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{selectedSlip.official_email || '-'}</span>
                 </div>
                 <div>
-                  <strong>UAN:</strong> {selectedSlip.uan_no || 'N/A'}
+                  <strong style={{ color: 'var(--text-secondary)' }}>Reporting Manager:</strong> <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{selectedSlip.manager_name || '-'}</span>
+                </div>
+                <div>
+                  <strong style={{ color: 'var(--text-secondary)' }}>PAN:</strong> <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{selectedSlip.pan || '-'}</span>
+                </div>
+                <div>
+                  <strong style={{ color: 'var(--text-secondary)' }}>UAN:</strong> <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{selectedSlip.uan_no || '-'}</span>
+                </div>
+                <div>
+                  <strong style={{ color: 'var(--text-secondary)' }}>Payroll Month:</strong> <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{getMonthName(selectedSlip.month)}</span>
+                </div>
+                <div>
+                  <strong style={{ color: 'var(--text-secondary)' }}>Payroll Year:</strong> <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{selectedSlip.year}</span>
+                </div>
+                <div>
+                  <strong style={{ color: 'var(--text-secondary)' }}>Payroll Version:</strong> <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{selectedSlip.payroll_version ? `v${selectedSlip.payroll_version}` : 'v1'}</span>
+                </div>
+                <div>
+                  <strong style={{ color: 'var(--text-secondary)' }}>Payment Status:</strong> <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{selectedSlip.payment_status || 'Paid'}</span>
                 </div>
                 <div style={{ gridColumn: 'span 2' }}>
-                  <strong>Bank:</strong> {selectedSlip.bank_name || 'N/A'} (A/C: {selectedSlip.bank_account_no || 'N/A'})
+                  <strong style={{ color: 'var(--text-secondary)' }}>Bank Account:</strong> <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{selectedSlip.bank_name || '-'} (A/C: {selectedSlip.bank_account_no || '-'})</span>
                 </div>
               </div>
 
+              {/* Attendance Summary */}
+              <div style={{
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-md)',
+                padding: '0.75rem 1rem',
+                marginBottom: '1.5rem',
+                fontSize: '0.85rem'
+              }}>
+                <h4 style={{ margin: '0 0 0.5rem 0', fontWeight: 600, color: 'var(--text-primary)' }}>Attendance Summary</h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem 1rem' }}>
+                  <div>
+                    <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.75rem' }}>Calendar Days</span>
+                    <strong style={{ color: 'var(--text-primary)' }}>{selectedSlip.monthly_working_days ?? 30}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.75rem' }}>Present Days</span>
+                    <strong style={{ color: 'var(--text-primary)' }}>{selectedSlip.employee_working_days ?? 30}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.75rem' }}>Absent Days</span>
+                    <strong style={{ color: 'var(--text-primary)' }}>{lopDays}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.75rem' }}>LOP Days</span>
+                    <strong style={{ color: 'var(--text-primary)' }}>{lopDays}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.75rem' }}>Paid Days</span>
+                    <strong style={{ color: 'var(--text-primary)' }}>{selectedSlip.employee_working_days ?? 30}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-secondary)', display: 'block', fontSize: '0.75rem' }}>Attendance %</span>
+                    <strong style={{ color: 'var(--text-primary)' }}>
+                      {selectedSlip.monthly_working_days ? (((selectedSlip.employee_working_days ?? 30) / selectedSlip.monthly_working_days) * 100).toFixed(2) : '100.00'}%
+                    </strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Earnings & Deductions Table */}
               <div style={{ border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '1rem', background: 'var(--bg-tertiary)', marginBottom: '1.5rem' }}>
                 <h4 style={{ margin: '0 0 1rem 0', fontWeight: 600 }}>Earnings & Deductions</h4>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.9rem' }}>
@@ -292,7 +420,7 @@ const EmployeePayroll = () => {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
                     <span>LOP Deductions</span>
-                    <span>-{formatINR(selectedSlip.lop)}</span>
+                    <span>-{formatINR(lopAmount)}</span>
                   </div>
                   {selectedSlip.tds > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
@@ -307,11 +435,66 @@ const EmployeePayroll = () => {
                     <span>Total Deductions</span>
                     <span>-{formatINR(selectedSlip.deductions)}</span>
                   </div>
-                  <hr style={{ border: 'none', borderTop: '1px solid var(--border-light)', margin: '0.5rem 0' }} />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1.05rem' }}>
-                    <span>Net Salary</span>
-                    <span>{formatINR(selectedSlip.net_salary)}</span>
-                  </div>
+                </div>
+              </div>
+
+              {/* Salary Summary (Net Pay Derivation) */}
+              <div style={{
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-md)',
+                padding: '1rem',
+                marginBottom: '1.5rem',
+                fontSize: '0.85rem'
+              }}>
+                <h4 style={{ margin: '0 0 0.75rem 0', fontWeight: 600, color: 'var(--text-primary)' }}>Salary Summary (Net Pay Derivation)</h4>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>(A) Gross Earnings:</span>
+                  <strong style={{ color: 'var(--text-primary)' }}>{formatINR(selectedSlip.total_earnings)}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>(B) Total Deductions:</span>
+                  <strong style={{ color: 'var(--text-primary)' }}>-{formatINR(selectedSlip.deductions)}</strong>
+                </div>
+                <hr style={{ border: 'none', borderTop: '1px solid var(--border-light)', margin: '0.5rem 0' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--accent-primary)', fontWeight: 600 }}>Net Salary Paid (A - B):</span>
+                  <strong style={{ color: 'var(--accent-primary)', fontSize: '1.25rem', fontWeight: 800 }}>{formatINR(selectedSlip.net_salary)}</strong>
+                </div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginTop: '0.5rem', fontStyle: 'italic' }}>
+                  Net Salary is derived by subtracting Total Deductions from Gross Earnings.
+                </div>
+              </div>
+
+              {/* Net Salary in Words */}
+              <div style={{
+                fontSize: '0.85rem',
+                color: 'var(--text-primary)',
+                marginBottom: '1.5rem',
+                padding: '0.5rem 0',
+                borderBottom: '1px solid var(--border-light)'
+              }}>
+                <strong>Amount in Words:</strong> <span style={{ textTransform: 'capitalize', color: 'var(--text-secondary)' }}>{numberToWords(selectedSlip.net_salary)}</span>
+              </div>
+
+              {/* System generated Footer */}
+              <div style={{
+                fontSize: '0.75rem',
+                color: 'var(--text-tertiary)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.25rem',
+                marginBottom: '1.5rem',
+                background: 'var(--bg-tertiary)',
+                padding: '0.75rem',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-light)'
+              }}>
+                <div><strong>Generated By:</strong> System Admin</div>
+                <div><strong>Payroll Version:</strong> {selectedSlip.payroll_version ? `v${selectedSlip.payroll_version}` : 'v1'}</div>
+                <div><strong>Release Date:</strong> {selectedSlip.release_date ? new Date(selectedSlip.release_date).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB')}</div>
+                <div style={{ marginTop: '0.5rem', textAlign: 'center', fontSize: '0.7rem' }}>
+                  This is a system generated payslip preview and does not require a signature.
                 </div>
               </div>
 

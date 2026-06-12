@@ -2,8 +2,10 @@ import { motion } from 'framer-motion';
 import { Clock, AlertCircle, Play, Square } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import api from '../../Services/api.js';
+import { useToast } from '../../Shared/ToastContext';
 
 const EmployeeAttendance = () => {
+  const { showToast } = useToast();
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isClockedIn, setIsClockedIn] = useState(false);
@@ -56,13 +58,15 @@ const EmployeeAttendance = () => {
       if (!isClockedIn) {
         // Clock In
         await api.post('/attendance/clock-in');
+        showToast('Clocked in successfully!', 'success');
       } else {
         // Clock Out
         await api.post('/attendance/clock-out');
+        showToast('Clocked out successfully!', 'success');
       }
       await fetchLogs();
     } catch (err) {
-      alert(err.message || 'Clock toggle failed');
+      showToast(err.message || 'Clock toggle failed', 'error');
     }
   };
 

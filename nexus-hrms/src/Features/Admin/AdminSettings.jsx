@@ -2,8 +2,10 @@ import { motion } from 'framer-motion';
 import { Shield, Bell, Building, Check, X, Edit, Trash, Plus } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import api from '../../Services/api.js';
+import { useToast } from '../../Shared/ToastContext';
 
 const AdminSettings = () => {
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState('company');
   
   // State for Departments
@@ -55,14 +57,16 @@ const AdminSettings = () => {
     try {
       if (deptForm.id) {
         await api.put(`/departments/${deptForm.id}`, { name: deptForm.name, managerId: deptForm.managerId ? parseInt(deptForm.managerId) : null });
+        showToast('Department updated successfully!', 'success');
       } else {
         await api.post('/departments', { name: deptForm.name, managerId: deptForm.managerId ? parseInt(deptForm.managerId) : null });
+        showToast('Department created successfully!', 'success');
       }
       setShowDeptModal(false);
       setDeptForm({ id: null, name: '', managerId: '' });
       fetchTabContent();
     } catch (err) {
-      alert(err.message || 'Operation failed');
+      showToast(err.message || 'Operation failed', 'error');
     }
   };
 
@@ -70,9 +74,10 @@ const AdminSettings = () => {
     if (!confirm('Are you sure you want to delete this department?')) return;
     try {
       await api.delete(`/departments/${id}`);
+      showToast('Department deleted successfully!', 'success');
       fetchTabContent();
     } catch (err) {
-      alert(err.message || 'Failed to delete');
+      showToast(err.message || 'Failed to delete', 'error');
     }
   };
 
@@ -82,14 +87,16 @@ const AdminSettings = () => {
     try {
       if (desigForm.id) {
         await api.put(`/designations/${desigForm.id}`, { name: desigForm.name, description: desigForm.description });
+        showToast('Designation updated successfully!', 'success');
       } else {
         await api.post('/designations', { name: desigForm.name, description: desigForm.description });
+        showToast('Designation created successfully!', 'success');
       }
       setShowDesigModal(false);
       setDesigForm({ id: null, name: '', description: '' });
       fetchTabContent();
     } catch (err) {
-      alert(err.message || 'Operation failed');
+      showToast(err.message || 'Operation failed', 'error');
     }
   };
 
@@ -97,9 +104,10 @@ const AdminSettings = () => {
     if (!confirm('Are you sure you want to delete this designation?')) return;
     try {
       await api.delete(`/designations/${id}`);
+      showToast('Designation deleted successfully!', 'success');
       fetchTabContent();
     } catch (err) {
-      alert(err.message || 'Failed to delete');
+      showToast(err.message || 'Failed to delete', 'error');
     }
   };
 
@@ -107,10 +115,11 @@ const AdminSettings = () => {
   const handlePolicyUpdate = async (id, maxDays, isCarryForward) => {
     try {
       await api.put(`/leaves/policies/${id}`, { maxAllowedDays: parseInt(maxDays), isCarryForward });
+      showToast('Leave policy updated successfully!', 'success');
       setEditingPolicy(null);
       fetchTabContent();
     } catch (err) {
-      alert(err.message || 'Failed to update policy');
+      showToast(err.message || 'Failed to update policy', 'error');
     }
   };
 
@@ -119,6 +128,7 @@ const AdminSettings = () => {
     try {
       const reason = processReason[id] || '';
       await api.post(`/profile-requests/${id}/process`, { status, reason });
+      showToast(`Profile request ${status.toLowerCase()} successfully!`, 'success');
       setProcessReason(prev => {
         const next = { ...prev };
         delete next[id];
@@ -126,7 +136,7 @@ const AdminSettings = () => {
       });
       fetchTabContent();
     } catch (err) {
-      alert(err.message || 'Failed to process change request');
+      showToast(err.message || 'Failed to process change request', 'error');
     }
   };
 

@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Plus, Edit, Trash2, Upload, Download, AlertCircle, CheckCircle2, X } from 'lucide-react';
 import api from '../../Services/api.js';
+import { useToast } from '../../Shared/ToastContext';
 
 const EmployeeList = () => {
+  const { showToast } = useToast();
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -121,19 +123,7 @@ const EmployeeList = () => {
     formData.append('file', selectedFile);
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/import/${importType}`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formData
-      });
-
-      const resData = await response.json();
-      if (!response.ok) {
-        throw new Error(resData.message || 'Failed to import CSV');
-      }
+      const resData = await api.post(`/import/${importType}`, formData);
 
       setImportResult(resData.stats);
       fetchEmployees();
@@ -158,7 +148,7 @@ const EmployeeList = () => {
       a.remove();
       setIsExportModalOpen(false);
     } catch (err) {
-      alert(err.message || 'Export failed');
+      showToast(err.message || 'Export failed', 'error');
     } finally {
       setExportLoading(false);
     }
@@ -233,7 +223,7 @@ const EmployeeList = () => {
       setModalTab('personal');
       setIsEmployeeModalOpen(true);
     } catch (err) {
-      alert('Failed to load employee details');
+      showToast('Failed to load employee details', 'error');
     }
   };
 
@@ -246,15 +236,15 @@ const EmployeeList = () => {
       }
       if (payload.id) {
         await api.put(`/employees/${payload.id}`, payload);
-        alert('Employee updated successfully');
+        showToast('Employee updated successfully', 'success');
       } else {
         await api.post('/employees', payload);
-        alert('Employee created successfully');
+        showToast('Employee created successfully', 'success');
       }
       setIsEmployeeModalOpen(false);
       fetchEmployees();
     } catch (err) {
-      alert(err.message || 'Operation failed');
+      showToast(err.message || 'Operation failed', 'error');
     }
   };
 
@@ -262,10 +252,10 @@ const EmployeeList = () => {
     if (!confirm('Are you sure you want to delete/inactivate this employee? This will change their status to Inactive.')) return;
     try {
       await api.delete(`/employees/${empId}`);
-      alert('Employee status changed to Inactive');
+      showToast('Employee status changed to Inactive', 'success');
       fetchEmployees();
     } catch (err) {
-      alert(err.message || 'Failed to inactivate');
+      showToast(err.message || 'Failed to inactivate', 'error');
     }
   };
 
@@ -294,10 +284,10 @@ const EmployeeList = () => {
     try {
       await api.post(`/employees/assign/${assignAdminId}`, { employeeIds: selectedAssignedIds });
       setIsAssignModalOpen(false);
-      alert('Admin assignments updated successfully');
+      showToast('Admin assignments updated successfully', 'success');
       fetchEmployees();
     } catch (err) {
-      alert(err.message || 'Failed to update assignments');
+      showToast(err.message || 'Failed to update assignments', 'error');
     }
   };
 
