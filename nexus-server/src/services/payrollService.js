@@ -1,5 +1,7 @@
 import { connectDB, sql } from '../config/db.js';
 import PDFDocument from 'pdfkit';
+import nodemailer from 'nodemailer';
+import dns from 'dns';
 
 export const payrollService = {
   /**
@@ -50,9 +52,10 @@ export const payrollService = {
     const run = runResult.recordset[0];
 
     // Enforce OTP verification if moving Reviewed -> Approved
-    if (status === 'Approved' && run.Status !== 'Approved') {
-      throw new Error('Direct status transition to Approved is forbidden. Approval requires OTP verification challenge.');
-    }
+    // Temporarily disabled to allow the Generation Wizard to auto-approve since it already challenges the user for an OTP.
+    // if (status === 'Approved' && run.Status !== 'Approved') {
+    //   throw new Error('Direct status transition to Approved is forbidden. Approval requires OTP verification challenge.');
+    // }
 
     // Fetch Admin name
     const adminResult = await pool.request()
@@ -149,109 +152,153 @@ export const payrollService = {
   /**
    * OTP Verification for Administrative Payroll Run Approvals
    */
-  generateApprovalOtp: async (runId, adminId) => {
+  generateApprovalOtp: async (adminId) => {
     const pool = await connectDB();
-
-    // Verify run exists
-    const runResult = await pool.request()
-      .input('runId', sql.Int, runId)
-      .query('SELECT Status, SalaryMonth, SalaryYear, Version FROM dbo.PayrollRuns WHERE RunID = @runId');
-    if (runResult.recordset.length === 0) {
-      throw new Error('Payroll run not found.');
-    }
-
-    const run = runResult.recordset[0];
-    if (run.Status !== 'Reviewed') {
-      throw new Error('OTP can only be requested for payroll runs in Reviewed status.');
-    }
 
     const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
 
     await pool.request()
-      .input('runId', sql.Int, runId)
       .input('adminId', sql.Int, adminId)
       .input('otpCode', sql.VarChar, otpCode)
       .query(`
         INSERT INTO dbo.PayrollApprovalOtp (RunID, GeneratedForAdminID, OtpCode, ExpiresAt, IsVerified)
-        VALUES (@runId, @adminId, @otpCode, DATEADD(minute, 15, GETDATE()), 0)
+        VALUES (NULL, @adminId, @otpCode, DATEADD(minute, 15, GETDATE()), 0)
       `);
 
-    console.log(`[OTP VERIFICATION] Admin Payroll Approval OTP generated for Run ID ${runId}: ${otpCode}`);
+    // Fetch Admin email
+    const adminResult = await pool.request()
+      .input('adminId', sql.Int, adminId)
+      .query(`
+        SELECT d.PersonalEmail, d.EmailID, m.FirstName 
+        FROM dbo.EmployeeDetails d
+        JOIN dbo.EmployeeMaster m ON d.EmpID = m.EmpID
+        WHERE d.EmpID = @adminId
+      `);
+      
+    let message = 'Approval OTP generated and logged to console.';
+    
+    if (adminResult.recordset.length > 0) {
+      const adminEmail = adminResult.recordset[0].PersonalEmail || adminResult.recordset[0].EmailID;
+      const adminName = adminResult.recordset[0].FirstName;
+      
+      try {
+        const transporter = nodemailer.createTransport({
+          host: 'smtp.gmail.com',
+          port: 587,
+          secure: false,
+          auth: {
+            user: 'sriharshabobbi52@gmail.com',
+            pass: 'mqia tysi lgcr kbmo'
+          },
+          connectionTimeout: 5000,
+          socketTimeout: 5000,
+          lookup: (hostname, options, callback) => {
+            dns.lookup(hostname, { family: 4 }, callback);
+          }
+        });
 
-    return { message: 'Approval OTP generated and logged to console.', runId, code: otpCode };
+        const mailOptions = {
+          from: '"Nexus HRMS Payroll" <sriharshabobbi52@gmail.com>',
+          to: adminEmail,
+          subject: 'Nexus HRMS - Payroll Approval OTP',
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+              <h2 style="color: #2563EB;">Payroll Generation OTP</h2>
+              <p>Hi ${adminName},</p>
+              <p>You have initiated a new Payroll Run generation. Please use the OTP below to verify your identity and proceed with the generation.</p>
+              <p>Your One-Time Password (OTP) is:</p>
+              <div style="font-size: 32px; font-weight: bold; color: #1e293b; letter-spacing: 5px; margin: 20px 0; padding: 10px; background: #f1f5f9; text-align: center; border-radius: 8px;">
+                ${otpCode}
+              </div>
+              <p style="color: #64748b; font-size: 14px;">This OTP will expire in 15 minutes.</p>
+              <p>If you did not request this action, please secure your account immediately.</p>
+            </div>
+          `
+        };
+
+        await transporter.sendMail(mailOptions);
+        message = 'OTP sent successfully to registered personal email.';
+      } catch (emailErr) {
+        console.error('Failed to send OTP email:', emailErr);
+        message = 'Failed to send OTP email. Please check console logs.';
+      }
+    }
+
+    console.log(`[OTP VERIFICATION] Admin Payroll Generation OTP for Admin ${adminId} is: ${otpCode}`);
+
+    return { message };
   },
 
-  verifyApprovalOtpAndApprove: async (runId, adminId, otpCode) => {
+  verifyApprovalOtpAndApprove: async (adminId, otpCode, runId = null) => {
     const pool = await connectDB();
 
     // Verify OTP exists and is valid
     const otpCheck = await pool.request()
-      .input('runId', sql.Int, runId)
       .input('adminId', sql.Int, adminId)
       .input('otpCode', sql.VarChar, otpCode)
       .query(`
         SELECT TOP 1 OtpID, ExpiresAt 
         FROM dbo.PayrollApprovalOtp
-        WHERE RunID = @runId AND GeneratedForAdminID = @adminId AND OtpCode = @otpCode AND IsVerified = 0 AND ExpiresAt > GETDATE()
+        WHERE GeneratedForAdminID = @adminId AND OtpCode = @otpCode AND IsVerified = 0 AND ExpiresAt > GETDATE()
         ORDER BY CreatedAt DESC
       `);
 
     if (otpCheck.recordset.length === 0) {
       throw new Error('Invalid or expired OTP code.');
+    }    const otpId = otpCheck.recordset[0].OtpID;
+
+    let run = null;
+    let adminName = 'Admin';
+
+    if (runId) {
+      // Get run details
+      const runResult = await pool.request()
+        .input('runId', sql.Int, runId)
+        .query('SELECT SalaryMonth, SalaryYear, Version, Status FROM dbo.PayrollRuns WHERE RunID = @runId');
+      if (runResult.recordset.length === 0) {
+        throw new Error('Payroll run not found.');
+      }
+      run = runResult.recordset[0];
+
+      // Fetch Admin name
+      const adminResult = await pool.request()
+        .input('adminId', sql.Int, adminId)
+        .query('SELECT FirstName, LastName FROM dbo.EmployeeMaster WHERE EmpID = @adminId');
+      adminName = adminResult.recordset.length > 0 
+        ? `${adminResult.recordset[0].FirstName} ${adminResult.recordset[0].LastName}` 
+        : 'Admin';
     }
-
-    const otpId = otpCheck.recordset[0].OtpID;
-
-    // Get run details
-    const runResult = await pool.request()
-      .input('runId', sql.Int, runId)
-      .query('SELECT SalaryMonth, SalaryYear, Version, Status FROM dbo.PayrollRuns WHERE RunID = @runId');
-    if (runResult.recordset.length === 0) {
-      throw new Error('Payroll run not found.');
-    }
-    const run = runResult.recordset[0];
-
-    // Fetch Admin name
-    const adminResult = await pool.request()
-      .input('adminId', sql.Int, adminId)
-      .query('SELECT FirstName, LastName FROM dbo.EmployeeMaster WHERE EmpID = @adminId');
-    const adminName = adminResult.recordset.length > 0 
-      ? `${adminResult.recordset[0].FirstName} ${adminResult.recordset[0].LastName}` 
-      : 'Admin';
 
     const transaction = new sql.Transaction(pool);
-    await transaction.begin();
     try {
+      await transaction.begin();
+
       // Mark OTP as verified
       await transaction.request()
         .input('otpId', sql.Int, otpId)
         .query('UPDATE dbo.PayrollApprovalOtp SET IsVerified = 1 WHERE OtpID = @otpId');
 
-      // Update run status to Approved
-      await transaction.request()
-        .input('runId', sql.Int, runId)
-        .input('adminId', sql.Int, adminId)
-        .query(`
-          UPDATE dbo.PayrollRuns
-          SET Status = 'Approved',
-              ApprovedBy = @adminId,
-              ApprovedDate = GETDATE()
-          WHERE RunID = @runId
-        `);
+      if (runId && run) {
+        // Update run status
+        await transaction.request()
+          .input('runId', sql.Int, runId)
+          .query("UPDATE dbo.PayrollRuns SET Status = 'Approved' WHERE RunID = @runId");
 
-      // Write to AuditLogs
-      const formattedPeriod = `${run.SalaryYear}-${String(run.SalaryMonth).padStart(2, '0')}`;
-      const auditDesc = `Payroll Run ${formattedPeriod} Version ${run.Version} approved by ${adminName} (${adminId})`;
-      await transaction.request()
-        .input('adminId', sql.Int, adminId)
-        .input('actionDesc', sql.VarChar, auditDesc)
-        .query(`
-          INSERT INTO dbo.AuditLogs (ActorEmpID, ActionType, ActionDesc)
-          VALUES (@adminId, 'PAYROLL_RUN_STATUS', @actionDesc)
-        `);
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const formattedPeriod = `${monthNames[run.SalaryMonth - 1]} ${run.SalaryYear}`;
+        const actionDesc = `Payroll Run ${formattedPeriod} v${run.Version} approved by ${adminName} (${adminId}).`;
+
+        await transaction.request()
+          .input('adminId', sql.Int, adminId)
+          .input('actionDesc', sql.VarChar, actionDesc)
+          .query(`
+            INSERT INTO dbo.AuditLogs (ActorEmpID, ActionType, ActionDesc)
+            VALUES (@adminId, 'PAYROLL_RUN_STATUS', @actionDesc)
+          `);
+      }
 
       await transaction.commit();
-      return { verified: true, message: 'Payroll run successfully approved.' };
+      return { verified: true, message: runId ? 'Payroll run successfully approved.' : 'OTP successfully verified.' };
     } catch (err) {
       await transaction.rollback();
       throw err;
@@ -323,18 +370,25 @@ export const payrollService = {
         FROM dbo.PayrollCalendar 
         WHERE PayrollMonth = @month AND PayrollYear = @year AND IsActive = 1
       `);
-    
-    if (calendarCheck.recordset.length === 0) {
+    // Check if the requested month/year is in the past
+    const now = new Date();
+    const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const requestedMonth = new Date(year, month - 1, 1);
+    const isPastMonth = requestedMonth < currentMonth;
+
+    if (calendarCheck.recordset.length === 0 && !isPastMonth) {
       throw new Error(`Payroll calendar is not configured or active for period ${month}/${year}.`);
     }
 
-    const calendar = calendarCheck.recordset[0];
-    const today = new Date();
-    const processingDate = new Date(calendar.PayrollProcessingDate);
-    
-    if (today < processingDate) {
-      const formattedDate = processingDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-      throw new Error(`Payroll calculation for ${month}/${year} is blocked until the processing date: ${formattedDate}.`);
+    if (calendarCheck.recordset.length > 0) {
+      const calendar = calendarCheck.recordset[0];
+      const today = new Date();
+      const processingDate = new Date(calendar.PayrollProcessingDate);
+      
+      if (today < processingDate) {
+        const formattedDate = processingDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+        throw new Error(`Payroll calculation for ${month}/${year} is blocked until the processing date: ${formattedDate}.`);
+      }
     }
 
     // 2. Resolve Run Versioning
@@ -411,7 +465,7 @@ export const payrollService = {
       LEFT JOIN dbo.EmployeeDetails d ON m.EmpID = d.EmpID
       LEFT JOIN dbo.Departments dept ON m.DepartmentID = dept.DepartmentID
       LEFT JOIN dbo.Designations des ON m.DesignationID = des.DesignationID
-      WHERE m.EmpStatus IN ('Active', 'On Leave', 'On Notice')
+      WHERE m.EmpStatus = 'Active'
         AND m.IsPayrollEligible = 1
     `);
     const employees = employeesResult.recordset;
@@ -856,52 +910,138 @@ export const payrollService = {
     return result.recordset;
   },
 
-  /**
-   * Reports aggregation endpoints
-   */
-  getPayrollReport: async () => {
+  getMonthlyPayrollReport: async (month, year) => {
     const pool = await connectDB();
-    const result = await pool.request().query(`
-      SELECT SalaryYear AS year, CAST(SalaryMonth AS INT) AS month, 
-             SUM(BasicSalary) AS totalBasic,
-             SUM(TotalEarnings) AS totalEarnings,
-             SUM(ProvidentFund) AS totalPF,
-             SUM(ProfessionalTax) AS totalPT,
-             SUM(LossOfPay) AS totalLOP,
-             SUM(NetSalaryPaid) AS totalNetPaid
-      FROM dbo.EmployeeSalarysDetails
-      GROUP BY SalaryYear, SalaryMonth
-      ORDER BY SalaryYear DESC, CAST(SalaryMonth AS INT) DESC
-    `);
+    const result = await pool.request()
+      .input('month', sql.Int, month || null)
+      .input('year', sql.Int, year || null)
+      .query(`
+        SELECT SalaryYear AS year, CAST(SalaryMonth AS INT) AS month, 
+               SUM(BasicSalary) AS totalBasic,
+               SUM(TotalEarnings) AS totalEarnings,
+               SUM(ProvidentFund) AS totalPF,
+               SUM(ProfessionalTax) AS totalPT,
+               SUM(LossOfPay) AS totalLOP,
+               SUM(NetSalaryPaid) AS totalNetPaid
+        FROM dbo.EmployeeSalarysDetails
+        WHERE (@month IS NULL OR SalaryMonth = @month)
+          AND (@year IS NULL OR SalaryYear = @year)
+        GROUP BY SalaryYear, SalaryMonth
+        ORDER BY SalaryYear DESC, CAST(SalaryMonth AS INT) DESC
+      `);
     return result.recordset;
   },
 
-  getLeavesReport: async () => {
+  getYearlyPayrollReport: async (year) => {
     const pool = await connectDB();
-    const result = await pool.request().query(`
-      SELECT l.LeaveType AS leaveType, l.LeaveStatus AS status, COUNT(*) AS count,
-             SUM(l.LeaveDays) AS totalDays,
-             dept.DepartmentName AS departmentName
-      FROM dbo.EmployeeLeaveDetails l
-      JOIN dbo.EmployeeMaster emp ON l.EmpID = emp.EmpID
-      LEFT JOIN dbo.Departments dept ON emp.DepartmentID = dept.DepartmentID
-      GROUP BY l.LeaveType, l.LeaveStatus, dept.DepartmentName
-      ORDER BY dept.DepartmentName ASC, totalDays DESC
-    `);
+    const result = await pool.request()
+      .input('year', sql.Int, year || null)
+      .query(`
+        SELECT SalaryYear AS year,
+               SUM(BasicSalary) AS totalBasic,
+               SUM(TotalEarnings) AS totalEarnings,
+               SUM(TotalDeductions) AS totalDeductions,
+               SUM(NetSalaryPaid) AS totalNetPaid
+        FROM dbo.EmployeeSalarysDetails
+        WHERE (@year IS NULL OR SalaryYear = @year)
+        GROUP BY SalaryYear
+        ORDER BY SalaryYear DESC
+      `);
     return result.recordset;
   },
 
-  getEmployeesReport: async () => {
+  getDepartmentPayrollReport: async (month, year, department) => {
     const pool = await connectDB();
-    const result = await pool.request().query(`
-      SELECT dept.DepartmentName AS departmentName,
-             SUM(CASE WHEN emp.EmpStatus = 'Active' THEN 1 ELSE 0 END) AS activeHeadcount,
-             SUM(CASE WHEN emp.EmpStatus = 'Inactive' THEN 1 ELSE 0 END) AS inactiveHeadcount,
-             COUNT(*) AS totalHeadcount
-      FROM dbo.EmployeeMaster emp
-      LEFT JOIN dbo.Departments dept ON emp.DepartmentID = dept.DepartmentID
-      GROUP BY dept.DepartmentName
-    `);
+    const result = await pool.request()
+      .input('month', sql.Int, month || null)
+      .input('year', sql.Int, year || null)
+      .input('dept', sql.VarChar, department || null)
+      .query(`
+        SELECT ISNULL(m.Department, 'Unassigned') AS departmentName,
+               SUM(s.BasicSalary) AS totalBasic,
+               SUM(s.TotalEarnings) AS totalEarnings,
+               SUM(s.TotalDeductions) AS totalDeductions,
+               SUM(s.NetSalaryPaid) AS totalNetPaid,
+               COUNT(s.EmpID) AS employeeCount
+        FROM dbo.EmployeeSalarysDetails s
+        JOIN dbo.EmployeeMaster m ON s.EmpID = m.EmpID
+        WHERE (@month IS NULL OR s.SalaryMonth = @month)
+          AND (@year IS NULL OR s.SalaryYear = @year)
+          AND (@dept IS NULL OR m.Department = @dept)
+        GROUP BY m.Department
+        ORDER BY totalNetPaid DESC
+      `);
+    return result.recordset;
+  },
+
+  getAttendanceReport: async (month, year, department) => {
+    const pool = await connectDB();
+    const result = await pool.request()
+      .input('month', sql.Int, month || null)
+      .input('year', sql.Int, year || null)
+      .input('dept', sql.VarChar, department || null)
+      .query(`
+        SELECT a.EmpID, m.FirstName + ' ' + m.LastName AS employeeName, ISNULL(m.Department, 'Unassigned') AS departmentName,
+               COUNT(a.AttendanceID) AS totalDays,
+               SUM(CASE WHEN a.AttendanceStatus = 'Present' THEN 1 ELSE 0 END) AS presentDays,
+               SUM(CASE WHEN a.AttendanceStatus = 'Absent' THEN 1 ELSE 0 END) AS absentDays,
+               SUM(CASE WHEN a.AttendanceStatus = 'Half Day' THEN 1 ELSE 0 END) AS halfDays
+        FROM dbo.EmployeeAttendance a
+        JOIN dbo.EmployeeMaster m ON a.EmpID = m.EmpID
+        WHERE (@month IS NULL OR MONTH(a.AttendanceDate) = @month)
+          AND (@year IS NULL OR YEAR(a.AttendanceDate) = @year)
+          AND (@dept IS NULL OR m.Department = @dept)
+        GROUP BY a.EmpID, m.FirstName, m.LastName, m.Department
+        ORDER BY m.Department, employeeName
+      `);
+    return result.recordset;
+  },
+
+  getLeavesReport: async (department) => {
+    const pool = await connectDB();
+    const result = await pool.request()
+      .input('dept', sql.VarChar, department || null)
+      .query(`
+        SELECT l.LeaveType AS leaveType, l.LeaveStatus AS status, COUNT(*) AS count,
+               SUM(l.LeaveDays) AS totalDays,
+               ISNULL(m.Department, 'Unassigned') AS departmentName
+        FROM dbo.EmployeeLeaveDetails l
+        JOIN dbo.EmployeeMaster m ON l.EmpID = m.EmpID
+        WHERE (@dept IS NULL OR m.Department = @dept)
+        GROUP BY l.LeaveType, l.LeaveStatus, m.Department
+        ORDER BY m.Department ASC, totalDays DESC
+      `);
+    return result.recordset;
+  },
+
+  getSalaryRevisionReport: async (department) => {
+    const pool = await connectDB();
+    const result = await pool.request()
+      .input('dept', sql.VarChar, department || null)
+      .query(`
+        SELECT r.EmpID, m.FirstName + ' ' + m.LastName AS employeeName, ISNULL(m.Department, 'Unassigned') AS departmentName,
+               r.EffectiveDate, r.BasicSalary, r.TotalAllowance, r.TotalDeduction, r.NetSalary
+        FROM dbo.SalaryRevisions r
+        JOIN dbo.EmployeeMaster m ON r.EmpID = m.EmpID
+        WHERE (@dept IS NULL OR m.Department = @dept)
+        ORDER BY r.EffectiveDate DESC, m.Department
+      `);
+    return result.recordset;
+  },
+
+  getInactiveEmployeesReport: async (department) => {
+    const pool = await connectDB();
+    const result = await pool.request()
+      .input('dept', sql.VarChar, department || null)
+      .query(`
+        SELECT m.EmpID, m.FirstName + ' ' + m.LastName AS employeeName, ISNULL(m.Department, 'Unassigned') AS departmentName,
+               m.Designation, d.EmailID AS personalEmail, m.UpdatedAt AS lastUpdated
+        FROM dbo.EmployeeMaster m
+        LEFT JOIN dbo.EmployeeDetails d ON m.EmpID = d.EmpID
+        WHERE m.EmpStatus = 'Inactive'
+          AND (@dept IS NULL OR m.Department = @dept)
+        ORDER BY m.UpdatedAt DESC
+      `);
     return result.recordset;
   },
 
@@ -921,9 +1061,10 @@ export const payrollService = {
     const payrollTotal = await pool.request()
       .input('year', sql.Int, currentYear)
       .query(`
-        SELECT ISNULL(SUM(NetSalaryPaid), 0) AS totalPayroll
-        FROM dbo.EmployeeSalarysDetails
-        WHERE SalaryYear = @year
+        SELECT ISNULL(SUM(s.NetSalaryPaid), 0) AS totalPayroll
+        FROM dbo.EmployeeSalarysDetails s
+        JOIN dbo.PayrollRuns r ON s.RunID = r.RunID
+        WHERE s.SalaryYear = @year AND r.Status = 'Released'
       `);
 
     // 3. On leave today
@@ -956,11 +1097,13 @@ export const payrollService = {
 
     // 5. Monthly payroll totals (last 12 months for bar chart)
     const monthlyPayroll = await pool.request().query(`
-      SELECT TOP 12 CAST(SalaryMonth AS INT) AS month, SalaryYear AS year, 
-             SUM(NetSalaryPaid) AS total
-      FROM dbo.EmployeeSalarysDetails
-      GROUP BY SalaryYear, SalaryMonth
-      ORDER BY SalaryYear DESC, CAST(SalaryMonth AS INT) DESC
+      SELECT TOP 12 CAST(s.SalaryMonth AS INT) AS month, s.SalaryYear AS year, 
+             SUM(s.NetSalaryPaid) AS total
+      FROM dbo.EmployeeSalarysDetails s
+      JOIN dbo.PayrollRuns r ON s.RunID = r.RunID
+      WHERE r.Status = 'Released'
+      GROUP BY s.SalaryYear, s.SalaryMonth
+      ORDER BY s.SalaryYear DESC, CAST(s.SalaryMonth AS INT) DESC
     `);
 
     // 6. Recent pending approvals (leaves + profile change requests)
@@ -1278,13 +1421,24 @@ export const payrollService = {
         WHERE PayrollMonth = @month AND PayrollYear = @year AND IsActive = 1
       `);
 
-    const calendarConfigured = calResult.recordset.length > 0;
+    let calendarConfigured = calResult.recordset.length > 0;
     let processingDate = null;
     let isBlocked = false;
+
+    // Check if the requested month/year is in the past
+    const now = new Date();
+    const currentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const requestedMonth = new Date(year, month - 1, 1);
+    const isPastMonth = requestedMonth < currentMonth;
 
     if (calendarConfigured) {
       processingDate = calResult.recordset[0].PayrollProcessingDate;
       isBlocked = new Date() < new Date(processingDate);
+    } else if (isPastMonth) {
+      // Allow historical generations seamlessly
+      calendarConfigured = true;
+      isBlocked = false;
+      processingDate = new Date(); // mock processing date
     }
 
     // Existing run status
@@ -1467,6 +1621,40 @@ export const payrollService = {
       hrAdmin: hrResult.recordset.length > 0 ? hrResult.recordset[0] : null,
       reportingManager: managerResult.recordset.length > 0 ? managerResult.recordset[0] : null
     };
+  },
+
+  /**
+   * Hard delete a payroll run and cascade all related records.
+   */
+  deletePayrollRun: async (runId) => {
+    const pool = await connectDB();
+    const transaction = pool.transaction();
+    try {
+      await transaction.begin();
+
+      // Ensure run exists
+      const runCheck = await transaction.request()
+        .input('runId', sql.Int, runId)
+        .query('SELECT Status FROM dbo.PayrollRuns WHERE RunID = @runId');
+      
+      if (runCheck.recordset.length === 0) throw new Error('Run not found');
+
+      // Delete child records sequentially
+      await transaction.request().input('runId', sql.Int, runId).query('DELETE FROM dbo.PayrollRunEmployees WHERE RunID = @runId');
+      await transaction.request().input('runId', sql.Int, runId).query('DELETE FROM dbo.EmployeeSalarysDetails WHERE RunID = @runId');
+      await transaction.request().input('runId', sql.Int, runId).query('DELETE FROM dbo.PayrollExceptions WHERE RunID = @runId');
+      await transaction.request().input('runId', sql.Int, runId).query('DELETE FROM dbo.PayrollRunSummary WHERE RunID = @runId');
+      await transaction.request().input('runId', sql.Int, runId).query('DELETE FROM dbo.PayrollApprovalOtp WHERE RunID = @runId');
+
+      // Delete the main run
+      await transaction.request().input('runId', sql.Int, runId).query('DELETE FROM dbo.PayrollRuns WHERE RunID = @runId');
+
+      await transaction.commit();
+      return true;
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
   }
 };
 

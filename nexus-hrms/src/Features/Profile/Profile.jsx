@@ -9,6 +9,13 @@ const Profile = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Password Change State
+  const [passwordState, setPasswordState] = useState({
+    newPassword: '',
+    confirmPassword: ''
+  });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
   const currentUser = authService.getCurrentUser();
   const userRole = localStorage.getItem('userRole') || 'employee';
 
@@ -97,6 +104,26 @@ const Profile = () => {
       fetchProfile();
     } catch (err) {
       alert(err.message || 'Failed to process request');
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    if (passwordState.newPassword !== passwordState.confirmPassword) {
+      alert('New password and confirm password do not match.');
+      return;
+    }
+    try {
+      setIsChangingPassword(true);
+      await api.post('/auth/change-password', {
+        newPassword: passwordState.newPassword
+      });
+      alert('Password has been changed successfully.');
+      setPasswordState({ newPassword: '', confirmPassword: '' });
+    } catch (err) {
+      alert(err.message || 'Failed to change password');
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -320,6 +347,32 @@ const Profile = () => {
                 <input type="text" name="ifscCode" value={profileData.ifscCode || ''} onChange={handleInputChange} disabled={!isEditing} style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: isEditing ? 'var(--bg-primary)' : 'var(--bg-tertiary)', color: 'var(--text-primary)', outline: 'none' }} />
               </div>
             </div>
+          </div>
+
+          {/* Section 5: Change Password */}
+          <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '2rem', boxShadow: 'var(--shadow-sm)' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: '1.5rem', color: 'var(--accent-primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Key size={18} /> Change Password
+            </h3>
+            <form onSubmit={handleChangePassword} style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem', maxWidth: '400px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>New Password</label>
+                <input type="password" required value={passwordState.newPassword} onChange={(e) => setPasswordState(prev => ({ ...prev, newPassword: e.target.value }))} style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Confirm New Password</label>
+                <input type="password" required value={passwordState.confirmPassword} onChange={(e) => setPasswordState(prev => ({ ...prev, confirmPassword: e.target.value }))} style={{ width: '100%', padding: '0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)', outline: 'none' }} />
+              </div>
+              <button 
+                type="submit" 
+                disabled={isChangingPassword || !passwordState.newPassword || !passwordState.confirmPassword}
+                style={{
+                  padding: '0.75rem', background: 'var(--accent-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: (isChangingPassword || !passwordState.newPassword || !passwordState.confirmPassword) ? 'not-allowed' : 'pointer', opacity: (isChangingPassword || !passwordState.newPassword || !passwordState.confirmPassword) ? 0.7 : 1
+                }}
+              >
+                {isChangingPassword ? 'Changing Password...' : 'Update Password'}
+              </button>
+            </form>
           </div>
 
         </div>

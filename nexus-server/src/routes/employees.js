@@ -19,7 +19,7 @@ router.get('/', verifyToken, requireRole(['SuperAdmin', 'HRAdmin', 'PayrollAdmin
 
 // Admin account management (SuperAdmin only)
 router.post('/admins', verifyToken, requireRole(['SuperAdmin']), createAdminAccount);
-router.get('/admins', verifyToken, requireRole(['SuperAdmin']), getAdminAccounts);
+router.get('/admins', verifyToken, requireRole(['SuperAdmin', 'HRAdmin']), getAdminAccounts);
 
 // Get single employee details (Admins, or Employee viewing self)
 router.get('/:id', verifyToken, getEmployeeById);

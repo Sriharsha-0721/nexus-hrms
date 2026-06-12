@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import dns from 'dns';
+
+dns.setDefaultResultOrder('ipv4first');
 import authRoutes from './routes/auth.js';
 import employeeRoutes from './routes/employees.js';
 import importRoutes from './routes/import.js';

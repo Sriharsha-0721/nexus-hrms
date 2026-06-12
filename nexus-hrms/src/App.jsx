@@ -2,6 +2,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import AuthLayout from './Layouts/AuthLayout';
 import MainLayout from './Layouts/MainLayout';
 import Login from './Features/Auth/Login';
+import ForgotPassword from './Features/Auth/ForgotPassword';
+import ResetPassword from './Features/Auth/ResetPassword';
 
 // Admin Features
 import Dashboard from './Features/Dashboard/Dashboard';
@@ -26,6 +28,8 @@ function App() {
       <Routes>
         <Route element={<AuthLayout />}>
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
         </Route>
 
         <Route element={<MainLayout />}>

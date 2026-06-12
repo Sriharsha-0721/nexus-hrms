@@ -14,7 +14,7 @@ const EmployeePayroll = () => {
   const fetchHistory = async () => {
     try {
       setLoading(true);
-      const data = await api.get('/payroll/history');
+      const data = await api.get('/payroll/history?personal=true');
       setHistory(data);
     } catch (err) {
       console.error('Failed to load payroll history:', err);

@@ -33,7 +33,13 @@ export const authService = {
 
   isAuthenticated: () => {
     return !!localStorage.getItem('token');
-  }
+  },
+  // Forgot Password
+  forgotPassword: async (email) => {
+    if (!email) throw new Error('Email is required');
+    return await api.post('/auth/forgot-password', { email });
+  },
+
 };
 
 export default authService;

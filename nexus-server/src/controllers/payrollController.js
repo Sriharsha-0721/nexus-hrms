@@ -1,4 +1,7 @@
 import { payrollService } from '../services/payrollService.js';
+import { exportPayrollSummaryExcel, exportPayrollSummaryCsv } from '../services/exportService.js';
+import { downloadPayslipPdf as downloadPayslipPdfService, downloadPayrollSummaryPdf as downloadPayrollSummaryPdfService } from '../services/payslipService.js';
+
 
 export const runPayroll = async (req, res) => {
   const { month, year } = req.body;
@@ -24,8 +27,11 @@ export const getHistory = async (req, res) => {
   const month = req.query.month ? parseInt(req.query.month) : null;
   const year = req.query.year ? parseInt(req.query.year) : null;
   const runId = req.query.runId ? parseInt(req.query.runId) : null;
+  const isPersonal = req.query.personal === 'true';
 
-  if (req.user.role !== 'admin') {
+  if (req.user.role !== 'SuperAdmin' && req.user.role !== 'HRAdmin' && req.user.role !== 'PayrollAdmin') {
+    employeeId = req.user.id;
+  } else if (isPersonal) {
     employeeId = req.user.id;
   } else if (req.query.employeeId) {
     employeeId = parseInt(req.query.employeeId);
@@ -151,6 +157,15 @@ export const getLeavesReport = async (req, res) => {
   }
 };
 
+export const downloadPayrollSummary = async (req, res) => {
+  try {
+    await downloadPayrollSummaryPdf(res);
+  } catch (err) {
+    console.error('Download payroll summary error:', err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
 export const getEmployeesReport = async (req, res) => {
   try {
     const report = await payrollService.getEmployeesReport();
@@ -172,12 +187,8 @@ export const getDashboardStats = async (req, res) => {
 };
 
 export const requestRunApprovalOtp = async (req, res) => {
-  const runId = parseInt(req.params.id, 10);
-  if (isNaN(runId)) {
-    return res.status(400).json({ message: 'Invalid run ID.' });
-  }
   try {
-    const result = await payrollService.generateApprovalOtp(runId, req.user.id);
+    const result = await payrollService.generateApprovalOtp(req.user.id);
     res.json(result);
   } catch (err) {
     console.error('Request run approval OTP error:', err);
@@ -186,13 +197,12 @@ export const requestRunApprovalOtp = async (req, res) => {
 };
 
 export const verifyRunApprovalOtp = async (req, res) => {
-  const runId = parseInt(req.params.id, 10);
-  const { otpCode } = req.body;
-  if (isNaN(runId) || !otpCode) {
-    return res.status(400).json({ message: 'Run ID and OTP code are required.' });
+  const { otpCode, runId } = req.body;
+  if (!otpCode) {
+    return res.status(400).json({ message: 'OTP code is required.' });
   }
   try {
-    const result = await payrollService.verifyApprovalOtpAndApprove(runId, req.user.id, otpCode);
+    const result = await payrollService.verifyApprovalOtpAndApprove(req.user.id, otpCode, runId);
     res.json(result);
   } catch (err) {
     console.error('Verify run approval OTP error:', err);
@@ -216,14 +226,50 @@ export const getReconciliationReport = async (req, res) => {
 
 export const downloadPayslipPdf = async (req, res) => {
   const payrollId = parseInt(req.params.id, 10);
-  const employeeId = req.user.role === 'admin' ? null : req.user.id;
+  const employeeId = (req.user.role === 'SuperAdmin' || req.user.role === 'HRAdmin' || req.user.role === 'PayrollAdmin') ? null : req.user.id;
 
   try {
-    await payrollService.downloadPayslipPdf(payrollId, employeeId, res);
+    await downloadPayslipPdfService(payrollId, employeeId, res);
   } catch (err) {
     console.error('Download payslip PDF error:', err);
     if (!res.headersSent) {
       res.status(500).json({ message: err.message || 'Failed to download payslip PDF.' });
+    }
+  }
+};
+
+export const downloadPayrollSummaryPdf = async (req, res) => {
+  const runId = parseInt(req.params.id, 10);
+  try {
+    await downloadPayrollSummaryPdfService(runId, res);
+  } catch (err) {
+    console.error('Download summary PDF error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ message: err.message || 'Failed to download summary PDF.' });
+    }
+  }
+};
+
+export const downloadPayrollSummaryExcel = async (req, res) => {
+  const runId = parseInt(req.params.id, 10);
+  try {
+    await exportPayrollSummaryExcel(runId, res);
+  } catch (err) {
+    console.error('Download summary Excel error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ message: err.message || 'Failed to download summary Excel.' });
+    }
+  }
+};
+
+export const downloadPayrollSummaryCsv = async (req, res) => {
+  const runId = parseInt(req.params.id, 10);
+  try {
+    await exportPayrollSummaryCsv(runId, res);
+  } catch (err) {
+    console.error('Download summary CSV error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ message: err.message || 'Failed to download summary CSV.' });
     }
   }
 };
@@ -281,5 +327,127 @@ export const getEmployeeHrManager = async (req, res) => {
   } catch (err) {
     console.error('Get HR manager error:', err);
     res.status(500).json({ message: err.message });
+  }
+};
+
+export const getReportData = async (req, res) => {
+  const type = req.params.type;
+  const month = req.query.month ? parseInt(req.query.month) : null;
+  const year = req.query.year ? parseInt(req.query.year) : null;
+  const department = req.query.department || null;
+
+  try {
+    let data = [];
+    if (type === 'payroll-monthly') data = await payrollService.getMonthlyPayrollReport(month, year);
+    else if (type === 'payroll-yearly') data = await payrollService.getYearlyPayrollReport(year);
+    else if (type === 'payroll-dept') data = await payrollService.getDepartmentPayrollReport(month, year, department);
+    else if (type === 'attendance') data = await payrollService.getAttendanceReport(month, year, department);
+    else if (type === 'leaves') data = await payrollService.getLeavesReport(department);
+    else if (type === 'revisions') data = await payrollService.getSalaryRevisionReport(department);
+    else if (type === 'inactive') data = await payrollService.getInactiveEmployeesReport(department);
+    // Keep old types for backwards compatibility temporarily
+    else if (type === 'payroll') data = await payrollService.getMonthlyPayrollReport(month, year);
+    else if (type === 'employees') data = await payrollService.getInactiveEmployeesReport(department);
+    else return res.status(400).json({ message: 'Unknown report type' });
+
+    res.json(data);
+  } catch (err) {
+    console.error('Get report data error:', err);
+    res.status(500).json({ message: 'Failed to get report data' });
+  }
+};
+
+export const exportReport = async (req, res) => {
+  const type = req.params.type;
+  const format = req.query.format || 'csv';
+  const month = req.query.month ? parseInt(req.query.month) : null;
+  const year = req.query.year ? parseInt(req.query.year) : null;
+  const department = req.query.department || null;
+
+  try {
+    let data = [];
+    if (type === 'payroll-monthly') data = await payrollService.getMonthlyPayrollReport(month, year);
+    else if (type === 'payroll-yearly') data = await payrollService.getYearlyPayrollReport(year);
+    else if (type === 'payroll-dept') data = await payrollService.getDepartmentPayrollReport(month, year, department);
+    else if (type === 'attendance') data = await payrollService.getAttendanceReport(month, year, department);
+    else if (type === 'leaves') data = await payrollService.getLeavesReport(department);
+    else if (type === 'revisions') data = await payrollService.getSalaryRevisionReport(department);
+    else if (type === 'inactive') data = await payrollService.getInactiveEmployeesReport(department);
+    // Keep old types for backwards compatibility temporarily
+    else if (type === 'payroll') data = await payrollService.getMonthlyPayrollReport(month, year);
+    else if (type === 'employees') data = await payrollService.getInactiveEmployeesReport(department);
+    else return res.status(400).json({ message: 'Unknown report type' });
+
+    if (data.length === 0) return res.status(404).json({ message: 'No data to export' });
+
+    if (format === 'csv') {
+      const { Parser } = await import('json2csv');
+      const csv = new Parser().parse(data);
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', `attachment; filename="Report_${type}.csv"`);
+      res.send(csv);
+    } else if (format === 'excel') {
+      const ExcelJS = (await import('exceljs')).default;
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Report');
+      worksheet.columns = Object.keys(data[0]).map(k => ({ header: k, key: k, width: 15 }));
+      data.forEach(row => worksheet.addRow(row));
+      worksheet.getRow(1).font = { bold: true };
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="Report_${type}.xlsx"`);
+      await workbook.xlsx.write(res);
+      res.end();
+    } else if (format === 'pdf') {
+      const PDFDocumentWithTable = (await import('pdfkit-table')).default;
+      const doc = new PDFDocumentWithTable({ size: 'A4', margin: 40 });
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="Report_${type}.pdf"`);
+      doc.pipe(res);
+      
+      // Header background
+      doc.rect(40, 40, 515, 80).fill('#1F2937'); // Dark slate
+
+      // Company Name
+      doc.fillColor('#FFFFFF').fontSize(20).text('NEXUS PAYROLL', 60, 55);
+      doc.fontSize(9).fillColor('#94A3B8').text('Hyderabad, India', 60, 85);
+      
+      doc.fontSize(14).fillColor('#FFFFFF').text(`${type.toUpperCase()} REPORT`, 250, 75, { width: 285, align: 'right' });
+      
+      doc.y = 150; // Move below the header
+      doc.fillColor('#1E293B');
+      
+      const headers = Object.keys(data[0]);
+      const table = {
+        title: "",
+        headers: headers,
+        rows: data.map(row => headers.map(h => String(row[h] || '')))
+      };
+      
+      await doc.table(table, {
+        x: 40,
+        prepareHeader: () => doc.font('Helvetica-Bold').fontSize(8),
+        prepareRow: () => doc.font('Helvetica').fontSize(8)
+      });
+      
+      doc.end();
+    } else {
+      res.status(400).json({ message: 'Invalid format' });
+    }
+  } catch (err) {
+    console.error('Export error:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ message: 'Failed to export report' });
+    }
+  }
+};
+
+export const deletePayrollRun = async (req, res) => {
+  try {
+    const runId = req.params.id;
+    await payrollService.deletePayrollRun(runId);
+    res.json({ message: 'Payroll run deleted successfully' });
+  } catch (err) {
+    console.error('Delete run error:', err);
+    res.status(500).json({ message: err.message || 'Failed to delete payroll run' });
   }
 };

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { User, Lock, ArrowRight, Shield, Users, Eye, EyeOff } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import authService from '../../Services/authService.js';
 import Logo from '../../Shared/Logo.jsx';
 
@@ -298,17 +298,9 @@ const Login = () => {
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: remainingLockTime > 0 ? 'not-allowed' : 'pointer' }}>
-              <input 
-                type="checkbox" 
-                disabled={remainingLockTime > 0}
-                style={{ accentColor: 'var(--accent-primary)', width: '16px', height: '16px' }} 
-              />
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Remember me</span>
-            </label>
-            <a href="#" style={{ fontSize: '0.85rem', color: 'var(--accent-primary)', fontWeight: 500, pointerEvents: remainingLockTime > 0 ? 'none' : 'auto', opacity: remainingLockTime > 0 ? 0.5 : 1 }}>Forgot Password?</a>
-          </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '2rem' }}>
+              <Link to="/forgot-password" style={{ fontSize: '0.85rem', color: 'var(--accent-primary)', fontWeight: 500, pointerEvents: remainingLockTime > 0 ? 'none' : 'auto', opacity: remainingLockTime > 0 ? 0.5 : 1 }}>Forgot Password?</Link>
+            </div>
 
           <button 
             type="submit"

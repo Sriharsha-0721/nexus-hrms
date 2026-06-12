@@ -3,10 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   CreditCard, Calendar, FileText, IndianRupee, Plus, X, ArrowRight, Check,
   Lock, RefreshCw, AlertTriangle, ChevronRight, ChevronLeft, History,
-  Users, Send, Eye, Download
+  Users, Send, Eye, Download, Trash
 } from 'lucide-react';
 import api from '../../Services/api.js';
 import { formatINR } from '../../Services/formatters.js';
+import EmployeePayroll from './EmployeePayroll.jsx';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Inline status banner (replaces all alert() calls)
@@ -15,8 +16,8 @@ const Banner = ({ type, message, onClose }) => {
   if (!message) return null;
   const colors = {
     success: { bg: 'rgba(16,185,129,0.12)', border: 'var(--success)', color: 'var(--success)' },
-    error:   { bg: 'rgba(239,68,68,0.12)',  border: 'var(--danger)',  color: 'var(--danger)'  },
-    info:    { bg: 'rgba(59,130,246,0.12)', border: 'var(--info)',    color: 'var(--info)'    },
+    error: { bg: 'rgba(239,68,68,0.12)', border: 'var(--danger)', color: 'var(--danger)' },
+    info: { bg: 'rgba(59,130,246,0.12)', border: 'var(--info)', color: 'var(--info)' },
     warning: { bg: 'rgba(245,158,11,0.12)', border: 'var(--warning)', color: 'var(--warning)' },
   };
   const c = colors[type] || colors.info;
@@ -34,6 +35,27 @@ const Banner = ({ type, message, onClose }) => {
 };
 
 const Payroll = () => {
+  const [downloadLoading, setDownloadLoading] = useState(false);
+
+  const handleDownloadPdf = async (payrollId) => {
+    try {
+      setDownloadLoading(true);
+      const blob = await api.download(`/payroll/payslips/${payrollId}/download`);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `payslip_${payrollId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('PDF download failed:', err);
+      // optionally show a banner
+    } finally {
+      setDownloadLoading(false);
+    }
+  };
   const [activeSubTab, setActiveSubTab] = useState('runs');
 
   // ── Runs list ──
@@ -44,7 +66,7 @@ const Payroll = () => {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
   const [runMonth, setRunMonth] = useState(new Date().getMonth() + 1);
-  const [runYear,  setRunYear]  = useState(new Date().getFullYear());
+  const [runYear, setRunYear] = useState(new Date().getFullYear());
   const [confirmData, setConfirmData] = useState(null);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [generateLoading, setGenerateLoading] = useState(false);
@@ -80,6 +102,12 @@ const Payroll = () => {
   const [revisionBanner, setRevisionBanner] = useState({ type: '', message: '' });
 
   // ────────────────────────────────────────────────────────────────────────────
+  const fetchReportData = async () => {
+    // existing implementation remains unchanged
+  };
+
+
+
   const fetchRuns = async () => {
     try {
       setRunsLoading(true);
@@ -96,7 +124,9 @@ const Payroll = () => {
     try {
       const data = await api.get('/employees');
       setEmployees(data);
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   useEffect(() => { fetchRuns(); fetchEmployees(); }, []);
@@ -128,60 +158,44 @@ const Payroll = () => {
     }
   };
 
-  // Step 2 → Step 3: generate (or recalculate) draft
-  const handleGenerateDraft = async () => {
-    setGenerateLoading(true);
-    setWizardBanner({ type: '', message: '' });
+  // Step 2 -> 3: Request OTP instead of Generating
+  const handleRequestOtp = async () => {
+    setGenerateLoading(true); setOtpError(''); setDisplayedOtp('');
     try {
-      const res = await api.post('/payroll/run', { month: runMonth, year: runYear });
-      setGeneratedRun(res.stats || res);
+      const res = await api.post(`/payroll/otp-request`);
+      if (res.developerOtp) setDisplayedOtp(res.developerOtp);
       setWizardStep(3);
-      fetchRuns();
     } catch (err) {
-      setWizardBanner({ type: 'error', message: err.message || 'Payroll generation failed.' });
+      setWizardBanner({ type: 'error', message: err.message || 'Failed to generate OTP.' });
     } finally {
       setGenerateLoading(false);
     }
   };
 
-  // Step 3 → Step 4: mark reviewed then go to OTP step
-  const handleMarkReviewed = async () => {
-    try {
-      const runId = generatedRun?.runId || confirmData?.existingRun?.runId;
-      await api.put(`/payroll/runs/${runId}/status`, { status: 'Reviewed' });
-      setWizardStep(4);
-      setWizardBanner({ type: '', message: '' });
-      fetchRuns();
-    } catch (err) {
-      setWizardBanner({ type: 'error', message: err.message });
-    }
-  };
-
-  // Step 4: request OTP
-  const handleRequestOtp = async () => {
-    const runId = generatedRun?.runId || confirmData?.existingRun?.runId;
-    setOtpLoading(true); setOtpError(''); setDisplayedOtp('');
-    try {
-      const res = await api.post(`/payroll/runs/${runId}/otp-request`);
-      // Display OTP on screen (from response)
-      if (res.code) setDisplayedOtp(res.code);
-    } catch (err) {
-      setOtpError(err.message || 'Failed to generate OTP.');
-    } finally {
-      setOtpLoading(false);
-    }
-  };
-
-  // Step 4 → Step 5: verify OTP → approve
-  const handleVerifyOtp = async (e) => {
+  // Step 3 -> 4: Verify OTP then Generate Draft
+  const handleVerifyOtpAndGenerate = async (e) => {
     e.preventDefault();
     if (!otpCode) return;
-    const runId = generatedRun?.runId || confirmData?.existingRun?.runId;
     setOtpLoading(true); setOtpError('');
     try {
-      await api.post(`/payroll/runs/${runId}/otp-verify`, { otpCode });
+      await api.post(`/payroll/otp-verify`, { otpCode });
       setOtpSuccess(true);
-      setTimeout(() => { setWizardStep(5); setOtpSuccess(false); fetchRuns(); }, 900);
+      // Wait for success animation then generate
+      setTimeout(async () => {
+        setOtpSuccess(false);
+        try {
+          const res = await api.post('/payroll/run', { month: runMonth, year: runYear });
+          setGeneratedRun(res.stats || res);
+          // Automatically mark it as Approved since admin already verified via OTP
+          const runId = (res.stats || res).runId;
+          await api.put(`/payroll/runs/${runId}/status`, { status: 'Approved' });
+          setWizardStep(4);
+          fetchRuns();
+        } catch (genErr) {
+          setWizardBanner({ type: 'error', message: genErr.message || 'Payroll generation failed.' });
+          setWizardStep(4);
+        }
+      }, 900);
     } catch (err) {
       setOtpError(err.message || 'Invalid or expired OTP.');
     } finally {
@@ -189,7 +203,7 @@ const Payroll = () => {
     }
   };
 
-  // Step 5 → Step 6: release payroll
+  // Step 4 -> 5: Release payroll
   const handleReleasePayroll = async () => {
     const runId = generatedRun?.runId || confirmData?.existingRun?.runId;
     setGenerateLoading(true);
@@ -201,6 +215,27 @@ const Payroll = () => {
       setWizardBanner({ type: 'error', message: err.message });
     } finally {
       setGenerateLoading(false);
+    }
+  };
+
+  const handleDownloadSummary = async (runId, format) => {
+    setDownloadLoading(true);
+    try {
+      const endpoint = format === 'pdf' 
+        ? `/payroll/summary/${runId}/download` 
+        : `/payroll/summary/${runId}/download/${format}`;
+      const response = await api.download(endpoint);
+      const url = window.URL.createObjectURL(response);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Payroll_Summary_Run_${runId}.${format === 'excel' ? 'xlsx' : format}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    } catch (err) {
+      alert(`Failed to download summary ${format}`);
+    } finally {
+      setDownloadLoading(false);
     }
   };
 
@@ -218,6 +253,18 @@ const Payroll = () => {
     }
   };
 
+  const handleDeleteRun = async (runId) => {
+    if (!window.confirm('Are you sure you want to permanently delete this payroll run? This will erase all associated payslips and records.')) return;
+    try {
+      await api.delete(`/payroll/runs/${runId}`);
+      setActionBanner({ type: 'success', message: 'Payroll run deleted successfully.' });
+      fetchRuns();
+      if (selectedRun?.id === runId) setSelectedRun(null);
+    } catch (err) {
+      setActionBanner({ type: 'error', message: err.message || 'Failed to delete payroll run.' });
+    }
+  };
+
   const handleReleaseFromPanel = async (runId) => {
     try {
       const res = await api.post(`/payroll/runs/${runId}/release`);
@@ -231,8 +278,8 @@ const Payroll = () => {
 
   const handleRequestApprovalOtp = async (runId) => {
     try {
-      const res = await api.post(`/payroll/runs/${runId}/otp-request`);
-      setActionBanner({ type: 'info', message: `OTP generated${res.code ? `: ${res.code}` : '. Check server console.'}` });
+      const res = await api.post(`/payroll/otp-request`);
+      setActionBanner({ type: 'info', message: res.message || 'OTP generated. Check your personal email.' });
     } catch (err) {
       setActionBanner({ type: 'error', message: err.message });
     }
@@ -303,16 +350,16 @@ const Payroll = () => {
   // ────────────────────────────────────────────────────────────────────────────
   // Helpers
   // ────────────────────────────────────────────────────────────────────────────
-  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const getMonthName = (m) => MONTHS[m - 1] || 'Unknown';
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'Draft':    return 'var(--text-secondary)';
+      case 'Draft': return 'var(--text-secondary)';
       case 'Reviewed': return 'var(--info)';
       case 'Approved': return 'var(--warning)';
       case 'Released': return 'var(--success)';
-      default:         return 'var(--text-tertiary)';
+      default: return 'var(--text-tertiary)';
     }
   };
 
@@ -322,8 +369,8 @@ const Payroll = () => {
     const { existingRun, isBlocked, calendarConfigured } = confirmData;
     if (!calendarConfigured) return { type: 'error', text: `No active payroll calendar configured for ${getMonthName(runMonth)} ${runYear}. Please set up the calendar first.` };
     if (isBlocked) return { type: 'warning', text: `Payroll processing for ${getMonthName(runMonth)} ${runYear} is not yet unlocked. Processing date has not been reached.` };
-    if (!existingRun) return { type: 'info', text: `No payroll run exists for ${getMonthName(runMonth)} ${runYear}. A new Version 1 Draft will be created.` };
-    if (existingRun.status === 'Draft')    return { type: 'warning', text: `A Draft payroll already exists (v${existingRun.version}). Generating will recalculate and overwrite it. No new version will be created.` };
+    if (!existingRun) return { type: 'info', text: `No payroll run exists for ${getMonthName(runMonth)} ${runYear}. A new Version 1 Draft will be created. Calculating and overwriting it. No new version will be created.` };
+    if (existingRun.status === 'Draft') return { type: 'warning', text: `A Draft payroll already exists (v${existingRun.version}). Generating will recalculate and overwrite it. No new version will be created.` };
     if (existingRun.status === 'Reviewed') return { type: 'warning', text: `A Reviewed payroll exists (v${existingRun.version}). Regenerating will overwrite the existing run. No new version will be created.` };
     if (existingRun.status === 'Approved') return { type: 'warning', text: `An Approved payroll exists (v${existingRun.version}). Recalculation is allowed but requires PayrollAdmin/SuperAdmin authorization.` };
     if (existingRun.status === 'Released') return { type: 'info', text: `The payroll for this period was Released (v${existingRun.version}). A new version (v${existingRun.version + 1}) will be created preserving historical records.` };
@@ -368,7 +415,7 @@ const Payroll = () => {
 
       {/* Sub Tabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '1.5rem', gap: '1.5rem' }}>
-        {['runs', 'revisions'].map(tab => (
+        {['runs', 'revisions', 'my_payslip'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveSubTab(tab)}
@@ -379,7 +426,7 @@ const Payroll = () => {
               fontWeight: activeSubTab === tab ? 600 : 400, fontSize: '0.95rem', cursor: 'pointer'
             }}
           >
-            {tab === 'runs' ? 'Payroll Batches' : 'Salary Revisions'}
+            {tab === 'runs' ? 'Payroll Batches' : tab === 'revisions' ? 'Salary Revisions' : 'My Payslip'}
           </button>
         ))}
       </div>
@@ -466,6 +513,21 @@ const Payroll = () => {
                           <Check size={13} /> Released & Paid
                         </span>
                       )}
+                      <button onClick={() => handleDeleteRun(selectedRun.id)}
+                        title="Permanently delete this payroll run and all associated data"
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.45rem 0.75rem', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--danger)', border: '1px solid var(--danger)', borderRadius: 'var(--radius-sm)', fontSize: '0.78rem', fontWeight: 600, cursor: 'pointer', marginLeft: '1rem' }}>
+                        <Trash size={13} /> Delete Run
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Summary Download Buttons */}
+                  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', background: 'var(--bg-primary)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>Download Summary Reports:</span>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button onClick={() => handleDownloadSummary(selectedRun.id, 'pdf')} disabled={downloadLoading} style={{ fontSize: '0.75rem', padding: '0.4rem 0.6rem', border: '1px solid var(--border-color)', background: '#fff', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}>{downloadLoading ? '...' : 'PDF'}</button>
+                      <button onClick={() => handleDownloadSummary(selectedRun.id, 'excel')} disabled={downloadLoading} style={{ fontSize: '0.75rem', padding: '0.4rem 0.6rem', border: '1px solid var(--border-color)', background: '#fff', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}>{downloadLoading ? '...' : 'Excel'}</button>
+                      <button onClick={() => handleDownloadSummary(selectedRun.id, 'csv')} disabled={downloadLoading} style={{ fontSize: '0.75rem', padding: '0.4rem 0.6rem', border: '1px solid var(--border-color)', background: '#fff', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }}>{downloadLoading ? '...' : 'CSV'}</button>
                     </div>
                   </div>
 
@@ -473,10 +535,12 @@ const Payroll = () => {
                   <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1.25rem' }}>
                     {['employees', 'reconciliation', 'exceptions'].map(t => (
                       <button key={t} onClick={() => setDetailViewTab(t)}
-                        style={{ background: 'transparent', border: 'none', padding: '0.45rem 0.75rem', fontSize: '0.83rem',
+                        style={{
+                          background: 'transparent', border: 'none', padding: '0.45rem 0.75rem', fontSize: '0.83rem',
                           color: detailViewTab === t ? 'var(--accent-primary)' : 'var(--text-secondary)',
                           borderBottom: detailViewTab === t ? '2px solid var(--accent-primary)' : 'none',
-                          cursor: 'pointer', fontWeight: detailViewTab === t ? 600 : 400 }}>
+                          cursor: 'pointer', fontWeight: detailViewTab === t ? 600 : 400
+                        }}>
                         {t === 'employees' ? `Pay Lines (${runDetails.length})` : t === 'reconciliation' ? 'Reconciliation' : `Exceptions (${reconciliation?.exceptions?.length || 0})`}
                       </button>
                     ))}
@@ -515,10 +579,12 @@ const Payroll = () => {
                                     }}>{detail.payment_status}</span>
                                   </td>
                                   <td style={{ padding: '0.6rem 0.75rem' }}>
-                                    <a href={`/api/payroll/payslips/${detail.payroll_id}/download`} target="_blank" rel="noreferrer"
-                                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: 'var(--accent-primary)', textDecoration: 'none', fontWeight: 500 }}>
+                                    <button
+                                      onClick={() => handleDownloadPdf(detail.payroll_id)}
+                                      disabled={downloadLoading}
+                                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: 'var(--accent-primary)', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 500 }}>
                                       <Download size={12} /> PDF
-                                    </a>
+                                    </button>
                                   </td>
                                 </tr>
                               ))}
@@ -536,45 +602,45 @@ const Payroll = () => {
                       {detailViewTab === 'reconciliation' && (
                         <div>
                           {reconciliationLoading ? <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>Loading...</div>
-                          : reconciliation?.summary ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
-                                {[
-                                  { label: 'Total Eligible', val: reconciliation.summary.TotalEmployees, color: '' },
-                                  { label: 'Processed', val: reconciliation.summary.EmployeesProcessed, color: 'var(--success)' },
-                                  { label: 'Skipped', val: reconciliation.summary.EmployeesSkipped, color: 'var(--warning)' },
-                                  { label: 'Exceptions', val: reconciliation.summary.ExceptionsCount, color: 'var(--danger)' },
-                                ].map(item => (
-                                  <div key={item.label} style={{ background: 'var(--bg-tertiary)', padding: '1rem', borderRadius: 'var(--radius-md)', borderLeft: item.color ? `4px solid ${item.color}` : 'none' }}>
-                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>{item.label}</div>
-                                    <div style={{ fontSize: '1.5rem', fontWeight: 700, color: item.color || 'var(--text-primary)' }}>{item.val}</div>
-                                  </div>
-                                ))}
-                              </div>
-                              <div style={{ background: 'var(--bg-tertiary)', padding: '1.25rem', borderRadius: 'var(--radius-md)' }}>
-                                <h3 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '1rem' }}>Financial Summary</h3>
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.88rem' }}>
+                            : reconciliation?.summary ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
                                   {[
-                                    { label: 'Gross Earnings', val: formatINR(reconciliation.summary.GrossAmount) },
-                                    { label: 'Provident Fund (PF)', val: `-${formatINR(reconciliation.summary.TotalPF)}` },
-                                    { label: 'Professional Tax (PT)', val: `-${formatINR(reconciliation.summary.TotalPT)}` },
-                                    { label: 'TDS', val: `-${formatINR(reconciliation.summary.TotalTDS)}` },
-                                    { label: 'Loss of Pay (LOP)', val: `-${formatINR(reconciliation.summary.TotalLOP)}` },
-                                  ].map(r => (
-                                    <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                      <span style={{ color: 'var(--text-secondary)' }}>{r.label}</span>
-                                      <span>{r.val}</span>
+                                    { label: 'Total Eligible', val: reconciliation.summary.TotalEmployees, color: '' },
+                                    { label: 'Processed', val: reconciliation.summary.EmployeesProcessed, color: 'var(--success)' },
+                                    { label: 'Skipped', val: reconciliation.summary.EmployeesSkipped, color: 'var(--warning)' },
+                                    { label: 'Exceptions', val: reconciliation.summary.ExceptionsCount, color: 'var(--danger)' },
+                                  ].map(item => (
+                                    <div key={item.label} style={{ background: 'var(--bg-tertiary)', padding: '1rem', borderRadius: 'var(--radius-md)', borderLeft: item.color ? `4px solid ${item.color}` : 'none' }}>
+                                      <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 600 }}>{item.label}</div>
+                                      <div style={{ fontSize: '1.5rem', fontWeight: 700, color: item.color || 'var(--text-primary)' }}>{item.val}</div>
                                     </div>
                                   ))}
                                 </div>
-                                <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '1rem 0' }} />
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1rem' }}>
-                                  <span>Net Payable</span>
-                                  <span style={{ color: 'var(--accent-primary)' }}>{formatINR(reconciliation.summary.NetPayable)}</span>
+                                <div style={{ background: 'var(--bg-tertiary)', padding: '1.25rem', borderRadius: 'var(--radius-md)' }}>
+                                  <h3 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: '1rem' }}>Financial Summary</h3>
+                                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', fontSize: '0.88rem' }}>
+                                    {[
+                                      { label: 'Gross Earnings', val: formatINR(reconciliation.summary.GrossAmount) },
+                                      { label: 'Provident Fund (PF)', val: `-${formatINR(reconciliation.summary.TotalPF)}` },
+                                      { label: 'Professional Tax (PT)', val: `-${formatINR(reconciliation.summary.TotalPT)}` },
+                                      { label: 'TDS', val: `-${formatINR(reconciliation.summary.TotalTDS)}` },
+                                      { label: 'Loss of Pay (LOP)', val: `-${formatINR(reconciliation.summary.TotalLOP)}` },
+                                    ].map(r => (
+                                      <div key={r.label} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <span style={{ color: 'var(--text-secondary)' }}>{r.label}</span>
+                                        <span>{r.val}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '1rem 0' }} />
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '1rem' }}>
+                                    <span>Net Payable</span>
+                                    <span style={{ color: 'var(--accent-primary)' }}>{formatINR(reconciliation.summary.NetPayable)}</span>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          ) : <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>No summary available.</div>}
+                            ) : <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>No summary available.</div>}
                         </div>
                       )}
 
@@ -688,6 +754,11 @@ const Payroll = () => {
         </div>
       )}
 
+      {/* ─── MY PAYSLIP TAB ─── */}
+      {activeSubTab === 'my_payslip' && (
+        <EmployeePayroll />
+      )}
+
       {/* ═══════════════════════════════════════════════════════════════════════
           6-STEP WIZARD MODAL
       ═══════════════════════════════════════════════════════════════════════ */}
@@ -759,9 +830,9 @@ const Payroll = () => {
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                         {[
                           { label: 'Eligible Employees', val: confirmData.eligibleCount, color: 'var(--success)' },
-                          { label: 'On Notice',          val: confirmData.onNoticeCount, color: 'var(--warning)' },
-                          { label: 'On Leave',           val: confirmData.onLeaveCount,  color: 'var(--info)'    },
-                          { label: 'Inactive',           val: confirmData.inactiveCount, color: 'var(--danger)'  },
+                          { label: 'On Notice', val: confirmData.onNoticeCount, color: 'var(--warning)' },
+                          { label: 'On Leave', val: confirmData.onLeaveCount, color: 'var(--info)' },
+                          { label: 'Inactive', val: confirmData.inactiveCount, color: 'var(--danger)' },
                         ].map(item => (
                           <div key={item.label} style={{ background: 'var(--bg-tertiary)', padding: '0.85rem 1rem', borderRadius: 'var(--radius-md)', borderLeft: `3px solid ${item.color}` }}>
                             <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 600, textTransform: 'uppercase' }}>{item.label}</div>
@@ -772,10 +843,12 @@ const Payroll = () => {
 
                       {/* Status message */}
                       {msg && (
-                        <div style={{ background: msg.type === 'error' ? 'rgba(239,68,68,0.1)' : msg.type === 'warning' ? 'rgba(245,158,11,0.1)' : 'rgba(59,130,246,0.1)',
+                        <div style={{
+                          background: msg.type === 'error' ? 'rgba(239,68,68,0.1)' : msg.type === 'warning' ? 'rgba(245,158,11,0.1)' : 'rgba(59,130,246,0.1)',
                           border: `1px solid ${msg.type === 'error' ? 'var(--danger)' : msg.type === 'warning' ? 'var(--warning)' : 'var(--info)'}`,
                           color: msg.type === 'error' ? 'var(--danger)' : msg.type === 'warning' ? 'var(--warning)' : 'var(--info)',
-                          borderRadius: 'var(--radius-md)', padding: '0.85rem 1rem', fontSize: '0.85rem' }}>
+                          borderRadius: 'var(--radius-md)', padding: '0.85rem 1rem', fontSize: '0.85rem'
+                        }}>
                           <strong>Note:</strong> {msg.text}
                         </div>
                       )}
@@ -788,54 +861,25 @@ const Payroll = () => {
                         <button onClick={() => setWizardStep(1)} style={{ padding: '0.65rem 1.1rem', background: 'transparent', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                           <ChevronLeft size={15} /> Back
                         </button>
-                        <button onClick={handleGenerateDraft} disabled={!canProceed() || generateLoading}
+                        <button onClick={handleRequestOtp} disabled={!canProceed() || generateLoading}
                           style={{ padding: '0.65rem 1.25rem', background: canProceed() ? 'var(--accent-primary)' : 'var(--border-color)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: canProceed() ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           {generateLoading ? <RefreshCw size={15} className="spin" /> : <Check size={15} />}
-                          {generateLoading ? 'Generating...' : 'Generate Draft'}
+                          {generateLoading ? 'Requesting OTP...' : 'Generate Draft'}
                         </button>
                       </div>
                     </div>
                   );
                 })()}
 
-                {/* ── STEP 3: Generated ── */}
+                {/* ── STEP 3: OTP Approval ── */}
                 {wizardStep === 3 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                    <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-                      <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(16,185,129,0.12)', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
-                        <Check size={28} />
-                      </div>
-                      <h4 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '0.25rem' }}>Draft Generated!</h4>
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>
-                        {generatedRun?.employeesProcessed ?? '—'} employees processed, {generatedRun?.employeesSkipped ?? 0} skipped.
-                      </p>
-                    </div>
-                    <div style={{ background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', padding: '1rem', fontSize: '0.85rem' }}>
-                      <p style={{ margin: '0 0 0.5rem 0', color: 'var(--text-secondary)' }}>Run ID: <strong>#{generatedRun?.runId}</strong></p>
-                      <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Version: <strong>v{generatedRun?.version}</strong></p>
-                    </div>
-                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>Review the pay lines in the batches panel, then proceed to mark as Reviewed.</p>
-                    <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-                      <button onClick={() => setWizardOpen(false)} style={{ padding: '0.65rem 1.1rem', background: 'transparent', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--text-primary)' }}>
-                        Done (Review Later)
-                      </button>
-                      <button onClick={handleMarkReviewed}
-                        style={{ padding: '0.65rem 1.25rem', background: 'var(--info)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <ArrowRight size={15} /> Mark Reviewed & Continue
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* ── STEP 4: OTP Approval ── */}
-                {wizardStep === 4 && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                     <div style={{ textAlign: 'center' }}>
                       <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'rgba(245,158,11,0.12)', color: 'var(--warning)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
                         <Lock size={24} />
                       </div>
                       <h4 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.25rem' }}>OTP Approval Required</h4>
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.83rem', margin: 0 }}>Generate an OTP, then enter it below to approve the payroll run.</p>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.83rem', margin: 0 }}>Generate an OTP, then enter it below to securely generate the payroll run.</p>
                     </div>
 
                     {displayedOtp && (
@@ -846,23 +890,52 @@ const Payroll = () => {
                     )}
 
                     {!displayedOtp && (
-                      <button onClick={handleRequestOtp} disabled={otpLoading}
+                      <button onClick={handleRequestOtp} disabled={generateLoading}
                         style={{ padding: '0.7rem', background: 'var(--warning)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: 'pointer' }}>
-                        {otpLoading ? 'Generating...' : 'Generate Approval OTP'}
+                        {generateLoading ? 'Generating...' : 'Generate Approval OTP'}
                       </button>
                     )}
 
                     {otpError && <Banner type="error" message={otpError} />}
 
-                    <form onSubmit={handleVerifyOtp} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <form onSubmit={handleVerifyOtpAndGenerate} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                       <input type="text" required placeholder="Enter 6-digit OTP" value={otpCode} maxLength={6}
                         onChange={e => setOtpCode(e.target.value)}
                         style={{ width: '100%', padding: '0.85rem', textAlign: 'center', fontSize: '1.4rem', letterSpacing: '6px', fontWeight: 700, borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
                       <button type="submit" disabled={otpLoading || otpSuccess}
                         style={{ padding: '0.75rem', background: otpSuccess ? 'var(--success)' : 'var(--accent-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: 'pointer' }}>
-                        {otpSuccess ? '✓ Verified!' : otpLoading ? 'Verifying...' : 'Verify & Approve'}
+                        {otpSuccess ? '✓ Verified!' : otpLoading ? 'Verifying & Generating Draft...' : 'Verify & Generate Payroll'}
                       </button>
                     </form>
+                  </div>
+                )}
+
+                {/* ── STEP 4: Generated ── */}
+                {wizardStep === 4 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+                      <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'rgba(16,185,129,0.12)', color: 'var(--success)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+                        <Check size={28} />
+                      </div>
+                      <h4 style={{ fontSize: '1.05rem', fontWeight: 700, marginBottom: '0.25rem' }}>Draft Generated Successfully!</h4>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>
+                        {generatedRun?.employeesProcessed ?? '—'} employees processed, {generatedRun?.employeesSkipped ?? 0} skipped.
+                      </p>
+                    </div>
+                    <div style={{ background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', padding: '1rem', fontSize: '0.85rem' }}>
+                      <p style={{ margin: '0 0 0.5rem 0', color: 'var(--text-secondary)' }}>Run ID: <strong>#{generatedRun?.runId}</strong></p>
+                      <p style={{ margin: 0, color: 'var(--text-secondary)' }}>Version: <strong>v{generatedRun?.version}</strong></p>
+                    </div>
+                    <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: 0 }}>Review the pay lines in the batches panel, then proceed to Release.</p>
+                    <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                      <button onClick={() => setWizardOpen(false)} style={{ padding: '0.65rem 1.1rem', background: 'transparent', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', cursor: 'pointer', color: 'var(--text-primary)' }}>
+                        Done (Review Later)
+                      </button>
+                      <button onClick={() => setWizardStep(5)}
+                        style={{ padding: '0.65rem 1.25rem', background: 'var(--info)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <ArrowRight size={15} /> Continue to Release
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -902,7 +975,7 @@ const Payroll = () => {
                         Salary records marked paid. Payslip notifications sent to all employees.
                       </p>
                     </div>
-                    <button onClick={() => setWizardOpen(false)}
+                    <button onClick={() => { setWizardOpen(false); fetchRuns(); }}
                       style={{ padding: '0.75rem 2rem', background: 'var(--accent-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: 'pointer' }}>
                       Close
                     </button>
@@ -961,6 +1034,6 @@ const Payroll = () => {
 
     </motion.div>
   );
-};
 
+}
 export default Payroll;

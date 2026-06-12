@@ -75,8 +75,13 @@ const EmployeeList = () => {
       const data = await api.get(url);
       setEmployees(data);
 
-      // Extract admin list for assignments
-      const adminList = data.filter(emp => ['SuperAdmin', 'HRAdmin'].includes(emp.role));
+      // Extract admin list for assignments from the dedicated endpoint
+      const adminsData = await api.get('/employees/admins');
+      // Map empId to id since the rest of the frontend uses admin.id as EmpID
+      const adminList = adminsData.map(a => ({
+        ...a,
+        id: a.empId
+      }));
       setAdmins(adminList);
     } catch (err) {
       setError(err.message || 'Failed to fetch employees');
