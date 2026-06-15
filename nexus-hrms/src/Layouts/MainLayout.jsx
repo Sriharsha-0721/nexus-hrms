@@ -52,6 +52,13 @@ const MainLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Route guard: Redirect to login if not authenticated
+  useEffect(() => {
+    if (!localStorage.getItem('token')) {
+      navigate('/login');
+    }
+  }, [navigate, location.pathname]);
+
   // Dynamic user details resolution
   const currentUserData = authService.getCurrentUser();
   const isAdmin = ['SuperAdmin', 'HRAdmin', 'PayrollAdmin'].includes(userRole);
