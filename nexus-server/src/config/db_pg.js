@@ -25,6 +25,7 @@ let poolPromise;
 
 export const connectDB = async () => {
   if (!poolPromise) {
+    pool.request = () => new PostgresRequest(pool);
     poolPromise = pool.connect()
       .then((client) => {
         console.log('[PG SPIKE] Connected to PostgreSQL successfully!');

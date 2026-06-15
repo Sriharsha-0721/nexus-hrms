@@ -151,7 +151,7 @@ async function runValidation() {
       for (const table of tableList) {
         try {
           const countRes = await pgPool.request().query(`SELECT COUNT(*) AS cnt FROM dbo.${table}`);
-          pgStats.tables[table] = { exists: true, count: countRes.recordset[0].cnt };
+          pgStats.tables[table] = { exists: true, count: parseInt(countRes.recordset[0].cnt, 10) };
         } catch (err) {
           pgStats.tables[table] = { exists: false, count: 0 };
           queryFailures.push(`PG query failed for ${table}: ${err.message}`);
@@ -161,14 +161,14 @@ async function runValidation() {
       // Fetch employee & department counts
       try {
         const empCount = await pgPool.request().query("SELECT COUNT(*) AS cnt FROM dbo.EmployeeMaster WHERE EmpStatus = 'Active'");
-        pgStats.employees = empCount.recordset[0].cnt;
+        pgStats.employees = parseInt(empCount.recordset[0].cnt, 10);
       } catch (err) {
         queryFailures.push(`PG Employee count query failed: ${err.message}`);
       }
 
       try {
         const deptCount = await pgPool.request().query('SELECT COUNT(*) AS cnt FROM dbo.Departments');
-        pgStats.departments = deptCount.recordset[0].cnt;
+        pgStats.departments = parseInt(deptCount.recordset[0].cnt, 10);
       } catch (err) {
         queryFailures.push(`PG Department count query failed: ${err.message}`);
       }
@@ -230,9 +230,9 @@ async function runValidation() {
           `);
 
         pgStats.dashboard = {
-          activeEmployees: d1.recordset[0].total,
+          activeEmployees: parseInt(d1.recordset[0].total, 10),
           totalPayroll: parseFloat(d2.recordset[0].totalpayroll || d2.recordset[0].totalPayroll || 0),
-          onLeaveToday: d3.recordset[0].count,
+          onLeaveToday: parseInt(d3.recordset[0].count, 10),
           avgAttendance: parseFloat(d4.recordset[0].avgpct || d4.recordset[0].avgPct || 0)
         };
       } catch (err) {
