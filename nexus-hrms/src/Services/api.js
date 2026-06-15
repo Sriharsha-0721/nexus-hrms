@@ -1,5 +1,9 @@
 // Resolve API base URL dynamically for production/development compatibility
-const BASE_URL = import.meta.env.VITE_API_URL || '/api';
+let tempUrl = import.meta.env.VITE_API_URL || '/api';
+if (tempUrl.startsWith('http') && !tempUrl.endsWith('/api') && !tempUrl.endsWith('/api/')) {
+  tempUrl = tempUrl.endsWith('/') ? `${tempUrl}api` : `${tempUrl}/api`;
+}
+const BASE_URL = tempUrl;
 
 
 const request = async (endpoint, options = {}) => {
