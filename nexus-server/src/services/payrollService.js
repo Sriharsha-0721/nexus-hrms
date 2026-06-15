@@ -1,5 +1,4 @@
 import { connectDB, sql } from '../config/db.js';
-import PDFDocument from 'pdfkit';
 import nodemailer from 'nodemailer';
 import dns from 'dns';
 
@@ -124,7 +123,7 @@ export const payrollService = {
 
       for (const row of employeesInRun.recordset) {
         // Notification
-        const notifMsg = `Your payslip for ${row.SalaryMonth}/${row.SalaryYear} has been released. Net paid: ₹${row.NetSalaryPaid}.`;
+        const notifMsg = `Your payslip for ${row.SalaryMonth}/${row.SalaryYear} has been released.`;
         await pool.request()
           .input('empId', sql.Int, row.EmpID)
           .input('title', sql.VarChar, `Payslip Released for ${row.SalaryMonth}/${row.SalaryYear}`)
@@ -175,6 +174,18 @@ export const payrollService = {
         WHERE d.EmpID = @adminId
       `);
       
+    const isLocalMode = process.env.OTP_MODE === 'local';
+
+    if (isLocalMode) {
+      console.log(`[LOCAL OTP] Admin Payroll Generation OTP for Admin ${adminId} is: ${otpCode}`);
+      return {
+        success: true,
+        message: "Local OTP generated successfully",
+        developerOtp: otpCode
+      };
+    }
+
+    // SMTP delivery mode (OTP_MODE=email)
     let message = 'Approval OTP generated and logged to console.';
     
     if (adminResult.recordset.length > 0) {
@@ -183,12 +194,12 @@ export const payrollService = {
       
       try {
         const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST || 'smtp.gmail.com',
-          port: parseInt(process.env.SMTP_PORT, 10) || 587,
+          host: process.env.SMTP_HOST,
+          port: parseInt(process.env.SMTP_PORT, 10),
           secure: process.env.SMTP_PORT === '465',
           auth: {
-            user: process.env.SMTP_USER || 'sriharshabobbi52@gmail.com',
-            pass: process.env.SMTP_PASSWORD || 'mqia tysi lgcr kbmo'
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASSWORD
           },
           connectionTimeout: 5000,
           socketTimeout: 5000,
@@ -198,7 +209,7 @@ export const payrollService = {
         });
 
         const mailOptions = {
-          from: `"Nexus HRMS Payroll" <${process.env.SMTP_USER || 'sriharshabobbi52@gmail.com'}>`,
+          from: `"Nexus HRMS Payroll" <${process.env.SMTP_USER || 'no-reply@nexus.com'}>`,
           to: adminEmail,
           subject: 'Nexus HRMS - Payroll Approval OTP',
           html: `
@@ -224,9 +235,14 @@ export const payrollService = {
       }
     }
 
-    console.log(`[OTP VERIFICATION] Admin Payroll Generation OTP for Admin ${adminId} is: ${otpCode}`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`[OTP VERIFICATION] Admin Payroll Generation OTP for Admin ${adminId} is: ${otpCode}`);
+    }
 
-    return { message };
+    return { 
+      success: true,
+      message 
+    };
   },
 
   verifyApprovalOtpAndApprove: async (adminId, otpCode, runId = null) => {
@@ -1530,7 +1546,7 @@ export const payrollService = {
     const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
     for (const row of employeesInRun.recordset) {
       const monthName = months[parseInt(row.SalaryMonth) - 1] || row.SalaryMonth;
-      const notifMsg = `Your ${monthName} ${row.SalaryYear} payslip has been released. Net pay: ₹${parseFloat(row.NetSalaryPaid).toLocaleString('en-IN')}.`;
+      const notifMsg = `Your ${monthName} ${row.SalaryYear} payslip has been released.`;
 
       await pool.request()
         .input('empId', sql.Int, row.EmpID)

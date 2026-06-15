@@ -9,6 +9,7 @@ const ForgotPassword = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [localOtp, setLocalOtp] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -16,11 +17,16 @@ const ForgotPassword = () => {
     setLoading(true);
     setError('');
     setMessage('');
+    setLocalOtp('');
     try {
       const resp = await authService.forgotPassword(email);
       setMessage(resp.message || 'OTP sent to your personal email.');
-      // Optionally navigate to reset page with email param
-      navigate('/reset-password', { state: { email } });
+      if (resp.developerOtp) {
+        setLocalOtp(resp.developerOtp);
+      } else {
+        // Only navigate automatically if there's no developer OTP to show
+        navigate('/reset-password', { state: { email } });
+      }
     } catch (err) {
       setError(err.response?.data?.message || err.message || 'An error occurred');
     } finally {
@@ -85,53 +91,87 @@ const ForgotPassword = () => {
             textAlign: 'center'
           }}>{message}</div>
         )}
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Official Email</label>
-            <input
-              type="email"
-              placeholder="employee@nexus.com"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+        {!localOtp ? (
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Official Email</label>
+              <input
+                type="email"
+                placeholder="employee@nexus.com"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.85rem 1rem',
+                  background: 'var(--bg-primary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 'var(--radius-md)',
+                  color: 'var(--text-primary)',
+                  fontSize: '0.95rem',
+                  outline: 'none'
+                }}
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
               style={{
                 width: '100%',
-                padding: '0.85rem 1rem',
-                background: 'var(--bg-primary)',
-                border: '1px solid var(--border-color)',
+                padding: '0.85rem',
+                background: loading ? 'var(--border-color)' : 'var(--accent-primary)',
+                color: '#fff',
+                border: 'none',
                 borderRadius: 'var(--radius-md)',
-                color: 'var(--text-primary)',
-                fontSize: '0.95rem',
-                outline: 'none'
+                fontWeight: 600,
+                fontSize: '1rem',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                transition: 'background-color 0.2s'
               }}
-            />
+              onMouseOver={(e) => { if (!loading) e.currentTarget.style.backgroundColor = 'var(--accent-primary-hover)'; }}
+              onMouseOut={(e) => { if (!loading) e.currentTarget.style.backgroundColor = 'var(--accent-primary)'; }}
+            >
+              {loading ? 'Sending...' : 'Send OTP'}
+            </button>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+              <Link to="/login" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500, textDecoration: 'none' }}>Back to Login</Link>
+              <span style={{ color: 'var(--border-color)', fontSize: '0.85rem' }}>|</span>
+              <Link to="/dashboard" style={{ fontSize: '0.85rem', color: 'var(--accent-primary)', fontWeight: 500, textDecoration: 'none' }}>Cancel (Dashboard)</Link>
+            </div>
+          </form>
+        ) : (
+          <div style={{
+            background: 'rgba(59,130,246,0.1)',
+            border: '1px solid var(--accent-primary)',
+            borderRadius: 'var(--radius-md)',
+            padding: '1.25rem',
+            textAlign: 'center',
+            marginTop: '0.5rem'
+          }}>
+            <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Local Developer OTP:</p>
+            <span style={{ fontSize: '1.8rem', fontWeight: 700, letterSpacing: '4px', color: 'var(--success)' }}>{localOtp}</span>
+            <p style={{ margin: '0.75rem 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Use this code on the next screen to reset your password.</p>
+            <button 
+              onClick={() => navigate('/reset-password', { state: { email, developerOtp: localOtp } })}
+              style={{
+                marginTop: '1.25rem',
+                width: '100%',
+                padding: '0.85rem',
+                background: 'var(--accent-primary)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 'var(--radius-md)',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--accent-primary-hover)'}
+              onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'var(--accent-primary)'}
+            >
+              Proceed to Reset Password
+            </button>
           </div>
-          <button
-            type="submit"
-            disabled={loading}
-            style={{
-              width: '100%',
-              padding: '0.85rem',
-              background: loading ? 'var(--border-color)' : 'var(--accent-primary)',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 'var(--radius-md)',
-              fontWeight: 600,
-              fontSize: '1rem',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'background-color 0.2s'
-            }}
-            onMouseOver={(e) => { if (!loading) e.currentTarget.style.backgroundColor = 'var(--accent-primary-hover)'; }}
-            onMouseOut={(e) => { if (!loading) e.currentTarget.style.backgroundColor = 'var(--accent-primary)'; }}
-          >
-            {loading ? 'Sending...' : 'Send OTP'}
-          </button>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '0.5rem' }}>
-            <Link to="/login" style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 500, textDecoration: 'none' }}>Back to Login</Link>
-            <span style={{ color: 'var(--border-color)', fontSize: '0.85rem' }}>|</span>
-            <Link to="/dashboard" style={{ fontSize: '0.85rem', color: 'var(--accent-primary)', fontWeight: 500, textDecoration: 'none' }}>Cancel (Dashboard)</Link>
-          </div>
-        </form>
+        )}
       </motion.div>
     </div>
   );

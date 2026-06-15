@@ -17,7 +17,7 @@ GO
 
 -- 3. Set a default PersonalEmail for existing records so testing works
 UPDATE dbo.EmployeeDetails 
-SET PersonalEmail = 'sriharshabobbi52@gmail.com' 
+SET PersonalEmail = 'employee@nexus.com' 
 WHERE PersonalEmail IS NULL;
 GO
 

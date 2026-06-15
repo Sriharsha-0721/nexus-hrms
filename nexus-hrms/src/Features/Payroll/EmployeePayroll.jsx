@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileText, Download, IndianRupee, Briefcase, X } from 'lucide-react';
+import { FileText, Download, IndianRupee, X, Briefcase } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import api from '../../Services/api.js';
 import { formatINR } from '../../Services/formatters.js';

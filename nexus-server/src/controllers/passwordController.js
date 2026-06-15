@@ -115,15 +115,37 @@ export const forgotPassword = async (req, res) => {
         VALUES (@empId, @hash, DATEADD(minute, 15, GETDATE()))
       `);
 
-    // Send actual email using nodemailer
+    // Handle OTP sending based on OTP_MODE
+    const isLocalMode = process.env.OTP_MODE === 'local';
+
+    if (isLocalMode) {
+      console.log(`[LOCAL OTP] Forgot Password OTP for EmpID ${EmpID} is: ${otp}`);
+
+      // Write audit log
+      await pool.request()
+        .input('empId', sql.Int, EmpID)
+        .input('desc', sql.VarChar, 'Password recovery OTP generated locally (local mode)')
+        .query(`
+          INSERT INTO dbo.AuditLogs (ActorEmpID, ActionType, ActionDesc)
+          VALUES (@empId, 'PASSWORD_OTP_SENT', @desc)
+        `);
+
+      return res.json({
+        success: true,
+        message: "Local OTP generated successfully",
+        developerOtp: otp
+      });
+    }
+
+    // SMTP delivery mode (OTP_MODE=email)
     try {
       const transporter = nodemailer.createTransport({
-        host: process.env.SMTP_HOST || 'smtp.gmail.com',
-        port: parseInt(process.env.SMTP_PORT, 10) || 587,
+        host: process.env.SMTP_HOST,
+        port: parseInt(process.env.SMTP_PORT, 10),
         secure: process.env.SMTP_PORT === '465',
         auth: {
-          user: process.env.SMTP_USER || 'sriharshabobbi52@gmail.com',
-          pass: process.env.SMTP_PASSWORD || 'mqia tysi lgcr kbmo'
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASSWORD
         },
         connectionTimeout: 5000,
         socketTimeout: 5000,
@@ -133,7 +155,7 @@ export const forgotPassword = async (req, res) => {
       });
 
       const mailOptions = {
-        from: `"Nexus HRMS Support" <${process.env.SMTP_USER || 'sriharshabobbi52@gmail.com'}>`,
+        from: `"Nexus HRMS Support" <${process.env.SMTP_USER || 'no-reply@nexus.com'}>`,
         to: PersonalEmail,
         subject: 'Nexus HRMS - Password Recovery OTP',
         html: `
@@ -170,6 +192,7 @@ export const forgotPassword = async (req, res) => {
       `);
 
     res.json({ 
+      success: true,
       message: 'A password reset OTP has been sent to your registered personal email address.'
     });
   } catch (err) {

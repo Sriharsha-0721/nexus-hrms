@@ -1,44 +1,57 @@
-import sql from 'mssql/msnodesqlv8.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Construct a connection string for native Windows ODBC driver
-// This uses Windows Authentication (Trusted Connection) which operates over Shared Memory / Named Pipes
-const server = process.env.DB_SERVER === 'localhost' || process.env.DB_SERVER === '127.0.0.1' 
-  ? '(local)' 
-  : (process.env.DB_SERVER || '(local)');
+const provider = process.env.DB_PROVIDER || 'mssql';
 
-const database = process.env.DB_DATABASE || 'NexusHRMS';
+let connectDB;
+let sql;
 
-const connectionString = `Driver={ODBC Driver 18 for SQL Server};Server=${server};Database=${database};Trusted_Connection=yes;TrustServerCertificate=yes;`;
+if (provider === 'postgres') {
+  console.log('[NEXUS DB] Utilizing PostgreSQL Provider (Supabase)');
+  const pgAdapter = await import('./db_pg.js');
+  connectDB = pgAdapter.connectDB;
+  sql = pgAdapter.sql;
+} else {
+  console.log('[NEXUS DB] Utilizing Microsoft SQL Server Provider (Local)');
+  const mssqlAdapter = await import('mssql/msnodesqlv8.js');
 
-const config = {
-  connectionString,
-  pool: {
-    max: 10,
-    min: 0,
-    idleTimeoutMillis: 30000,
-  },
-};
+  const server = process.env.DB_SERVER === 'localhost' || process.env.DB_SERVER === '127.0.0.1' 
+    ? '(local)' 
+    : (process.env.DB_SERVER || '(local)');
 
-let poolPromise;
+  const database = process.env.DB_DATABASE || 'NexusHRMS';
 
-export const connectDB = async () => {
-  if (!poolPromise) {
-    poolPromise = new sql.ConnectionPool(config)
-      .connect()
-      .then((pool) => {
-        console.log('Connected to SQL Server successfully via Named Pipes/Shared Memory (msnodesqlv8)');
-        return pool;
-      })
-      .catch((err) => {
-        console.error('Database Connection Failed: ', err);
-        poolPromise = null;
-        throw err;
-      });
-  }
-  return poolPromise;
-};
+  const connectionString = `Driver={ODBC Driver 18 for SQL Server};Server=${server};Database=${database};Trusted_Connection=yes;TrustServerCertificate=yes;`;
 
-export { sql };
+  const config = {
+    connectionString,
+    pool: {
+      max: 10,
+      min: 0,
+      idleTimeoutMillis: 30000,
+    },
+  };
+
+  let poolPromise;
+
+  connectDB = async () => {
+    if (!poolPromise) {
+      poolPromise = new mssqlAdapter.default.ConnectionPool(config)
+        .connect()
+        .then((pool) => {
+          console.log('Connected to SQL Server successfully via Named Pipes/Shared Memory (msnodesqlv8)');
+          return pool;
+        })
+        .catch((err) => {
+          console.error('Database Connection Failed: ', err);
+          poolPromise = null;
+          throw err;
+        });
+    }
+    return poolPromise;
+  };
+  sql = mssqlAdapter.default;
+}
+
+export { connectDB, sql };

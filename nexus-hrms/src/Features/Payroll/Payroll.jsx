@@ -82,6 +82,14 @@ const Payroll = () => {
   const [otpSuccess, setOtpSuccess] = useState(false);
   const [displayedOtp, setDisplayedOtp] = useState('');
 
+  // ── Panel Approval OTP Modal ──
+  const [approvalModalOpen, setApprovalModalOpen] = useState(false);
+  const [approvalOtpCode, setApprovalOtpCode] = useState('');
+  const [approvalOtpError, setApprovalOtpError] = useState('');
+  const [approvalOtpLoading, setApprovalOtpLoading] = useState(false);
+  const [approvalOtpSuccess, setApprovalOtpSuccess] = useState(false);
+  const [approvalDisplayedOtp, setApprovalDisplayedOtp] = useState('');
+
   // ── Selected run details ──
   const [selectedRun, setSelectedRun] = useState(null);
   const [runDetails, setRunDetails] = useState([]);
@@ -279,11 +287,44 @@ const Payroll = () => {
   };
 
   const handleRequestApprovalOtp = async (runId) => {
+    setApprovalModalOpen(true);
+    setApprovalOtpCode('');
+    setApprovalOtpError('');
+    setApprovalOtpSuccess(false);
+    setApprovalDisplayedOtp('');
+    setApprovalOtpLoading(true);
     try {
       const res = await api.post(`/payroll/otp-request`);
-      setActionBanner({ type: 'info', message: res.message || 'OTP generated. Check your personal email.' });
+      if (res.developerOtp) {
+        setApprovalDisplayedOtp(res.developerOtp);
+      }
     } catch (err) {
-      setActionBanner({ type: 'error', message: err.message });
+      setApprovalOtpError(err.message || 'Failed to request OTP.');
+    } finally {
+      setApprovalOtpLoading(false);
+    }
+  };
+
+  const handleVerifyApprovalOtp = async (e) => {
+    e.preventDefault();
+    if (!approvalOtpCode) return;
+    setApprovalOtpLoading(true);
+    setApprovalOtpError('');
+    try {
+      await api.post(`/payroll/otp-verify`, { otpCode: approvalOtpCode, runId: selectedRun.id });
+      setApprovalOtpSuccess(true);
+      setTimeout(() => {
+        setApprovalModalOpen(false);
+        fetchRuns();
+        if (selectedRun?.id === selectedRun.id) {
+          setSelectedRun(prev => ({ ...prev, status: 'Approved' }));
+        }
+        showToast('Payroll run approved successfully.', 'success');
+      }, 900);
+    } catch (err) {
+      setApprovalOtpError(err.message || 'Invalid or expired OTP.');
+    } finally {
+      setApprovalOtpLoading(false);
     }
   };
 
@@ -1029,6 +1070,51 @@ const Payroll = () => {
                   <button type="submit" style={{ padding: '0.65rem 1.25rem', background: 'var(--accent-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: 'pointer' }}>Save Revision</button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Panel Run Approval OTP Modal */}
+      <AnimatePresence>
+        {approvalModalOpen && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-lg)', padding: '2rem', width: '100%', maxWidth: '450px', boxShadow: 'var(--shadow-lg)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h3 style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>Verify Payroll Approval OTP</h3>
+                <button onClick={() => setApprovalModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}><X size={18} /></button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'rgba(245,158,11,0.12)', color: 'var(--warning)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+                    <Lock size={24} />
+                  </div>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: 0 }}>
+                    Enter the 6-digit OTP code to verify and approve the payroll run.
+                  </p>
+                </div>
+
+                {approvalDisplayedOtp && (
+                  <div style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid var(--success)', borderRadius: 'var(--radius-md)', padding: '0.85rem 1rem', textAlign: 'center' }}>
+                    <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', margin: '0 0 0.25rem 0' }}>Local Developer OTP (valid 15 min):</p>
+                    <span style={{ fontSize: '1.8rem', fontWeight: 700, letterSpacing: '6px', color: 'var(--success)' }}>{approvalDisplayedOtp}</span>
+                  </div>
+                )}
+
+                {approvalOtpError && <Banner type="error" message={approvalOtpError} />}
+
+                <form onSubmit={handleVerifyApprovalOtp} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <input type="text" required placeholder="Enter 6-digit OTP" value={approvalOtpCode} maxLength={6}
+                    onChange={e => setApprovalOtpCode(e.target.value)}
+                    style={{ width: '100%', padding: '0.85rem', textAlign: 'center', fontSize: '1.4rem', letterSpacing: '6px', fontWeight: 700, borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
+                  <button type="submit" disabled={approvalOtpLoading || approvalOtpSuccess}
+                    style={{ padding: '0.75rem', background: approvalOtpSuccess ? 'var(--success)' : 'var(--accent-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: 'pointer' }}>
+                    {approvalOtpSuccess ? '✓ Approved & Verified!' : approvalOtpLoading ? 'Verifying & Approving...' : 'Verify & Approve Payroll'}
+                  </button>
+                </form>
+              </div>
             </motion.div>
           </div>
         )}
