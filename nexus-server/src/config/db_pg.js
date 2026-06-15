@@ -49,12 +49,46 @@ class PostgresRequest {
   }
 
   input(name, type, value) {
-    this.inputs[name] = value;
+    let processedValue = value;
+    if (type === 'Bit' || name.toLowerCase().startsWith('is')) {
+      if (value === 1 || value === '1') {
+        processedValue = true;
+      } else if (value === 0 || value === '0') {
+        processedValue = false;
+      }
+    }
+    this.inputs[name] = processedValue;
     return this;
   }
 
   async query(sqlText) {
     let pgSql = sqlText;
+    
+    // 0. Pre-process boolean/bit comparisons and literals for PostgreSQL
+    pgSql = pgSql.replace(/\bIsActive\s*=\s*1\b/gi, 'IsActive = true');
+    pgSql = pgSql.replace(/\bIsActive\s*=\s*0\b/gi, 'IsActive = false');
+    pgSql = pgSql.replace(/\bIsPayrollEligible\s*=\s*1\b/gi, 'IsPayrollEligible = true');
+    pgSql = pgSql.replace(/\bIsPayrollEligible\s*=\s*0\b/gi, 'IsPayrollEligible = false');
+    pgSql = pgSql.replace(/\bIsVerified\s*=\s*1\b/gi, 'IsVerified = true');
+    pgSql = pgSql.replace(/\bIsVerified\s*=\s*0\b/gi, 'IsVerified = false');
+    pgSql = pgSql.replace(/\bIsRead\s*=\s*1\b/gi, 'IsRead = true');
+    pgSql = pgSql.replace(/\bIsRead\s*=\s*0\b/gi, 'IsRead = false');
+    pgSql = pgSql.replace(/\bIsOptional\s*=\s*1\b/gi, 'IsOptional = true');
+    pgSql = pgSql.replace(/\bIsOptional\s*=\s*0\b/gi, 'IsOptional = false');
+    pgSql = pgSql.replace(/\bIsCarryForward\s*=\s*1\b/gi, 'IsCarryForward = true');
+    pgSql = pgSql.replace(/\bIsCarryForward\s*=\s*0\b/gi, 'IsCarryForward = false');
+
+    pgSql = pgSql.replace(/INSERT\s+INTO\s+dbo\.SalaryRevisions\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+),\s*1\s*\)/gi,
+      'INSERT INTO dbo.SalaryRevisions ($1) VALUES ($2, true)');
+    pgSql = pgSql.replace(/INSERT\s+INTO\s+dbo\.SalaryRevisions\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+),\s*0\s*\)/gi,
+      'INSERT INTO dbo.SalaryRevisions ($1) VALUES ($2, false)');
+
+    pgSql = pgSql.replace(/INSERT\s+INTO\s+dbo\.Notifications\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+),\s*0\s*,\s*GETDATE\(\)\s*\)/gi,
+      'INSERT INTO dbo.Notifications ($1) VALUES ($2, false, GETDATE())');
+
+    pgSql = pgSql.replace(/INSERT\s+INTO\s+dbo\.PayrollApprovalOtp\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+),\s*0\s*\)/gi,
+      'INSERT INTO dbo.PayrollApprovalOtp ($1) VALUES ($2, false)');
+
     const params = [];
     const paramRegex = /@([a-zA-Z0-9_]+)/g;
     const paramMap = {};
