@@ -5,6 +5,7 @@ import dns from 'dns';
 import helmet from 'helmet';
 import compression from 'compression';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 
 dns.setDefaultResultOrder('ipv4first');
@@ -183,12 +184,24 @@ const __dirname = path.dirname(__filename);
 
 if (process.env.NODE_ENV === 'production') {
   const distPath = path.join(__dirname, '../../nexus-hrms/dist');
-  app.use(express.static(distPath));
+  const indexHtmlPath = path.join(distPath, 'index.html');
   
-  // Catch-all route to serve SPA index.html
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(distPath, 'index.html'));
-  });
+  if (fs.existsSync(indexHtmlPath)) {
+    app.use(express.static(distPath));
+    
+    // Catch-all route to serve SPA index.html
+    app.get('*', (req, res) => {
+      res.sendFile(indexHtmlPath);
+    });
+  } else {
+    // API-only production server (e.g. Render backend host)
+    app.get('/', (req, res) => {
+      res.json({ message: 'Nexus HRMS Backend API is running. Use /api/health to check status.' });
+    });
+    app.get('*', (req, res) => {
+      res.status(404).json({ message: 'Not Found. This is the API backend server.' });
+    });
+  }
 }
 
 // Global Error Handling Middleware
