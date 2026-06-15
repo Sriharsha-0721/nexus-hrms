@@ -23,8 +23,6 @@
     "helmet": "^8.2.0",
     "json2csv": "^6.0.0-alpha.2",
     "jsonwebtoken": "^9.0.3",
-    "msnodesqlv8": "^5.2.0",
-    "mssql": "^10.0.4",
     "multer": "^2.1.1",
     "nodemailer": "^8.0.11",
     "pdfkit": "^0.19.0",
