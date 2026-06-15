@@ -4,6 +4,7 @@ if (tempUrl.startsWith('http') && !tempUrl.endsWith('/api') && !tempUrl.endsWith
   tempUrl = tempUrl.endsWith('/') ? `${tempUrl}api` : `${tempUrl}/api`;
 }
 const BASE_URL = tempUrl;
+console.log('[NEXUS API] Resolved BASE_URL:', BASE_URL);
 
 
 const request = async (endpoint, options = {}) => {
