@@ -6,8 +6,8 @@ This report presents a side-by-side comparison of the Microsoft SQL Server (MSSQ
 
 * **Total Tables Expected:** 27
 * **Total Tables Created in PG:** 27
-* **Total Rows Imported in PG:** 11657
-* **Discrepancy (Failed Imports / Row Count Mismatch):** 1566
+* **Total Rows Imported in PG:** 11659
+* **Discrepancy (Failed Imports / Row Count Mismatch):** 1564
 * **Query Translation Failures:** 0
 * **Unsupported MSSQL Syntax Discovered:** None (All compatibility issues resolved)
 
@@ -57,7 +57,7 @@ This report presents a side-by-side comparison of the Microsoft SQL Server (MSSQ
 | `EmployeeSalarysDetails` | 387 | 170 | ❌ |
 | `PayrollRunSummary` | 13 | 5 | ❌ |
 | `PayslipDispatchLogs` | 232 | 0 | ❌ |
-| `AuditLogs` | 143 | 3 | ❌ |
+| `AuditLogs` | 143 | 5 | ❌ |
 | `ImportAuditLogs` | 0 | 0 | ✅ |
 | `Notifications` | 32 | 3 | ❌ |
 | `EmployeeDocuments` | 0 | 0 | ✅ |
@@ -79,7 +79,7 @@ The validation phase has failed or is incomplete.
 Reason(s):
 
 
-* There is a discrepancy of 1566 rows between MSSQL and PostgreSQL.
+* There is a discrepancy of 1564 rows between MSSQL and PostgreSQL.
 
 
 Please resolve the connection settings or schema compilation errors before proceeding.
