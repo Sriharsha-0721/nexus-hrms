@@ -52,22 +52,30 @@ const PORT = process.env.PORT || 5000;
 // Enable security headers (with CSP disabled for React inline assets compatibility)
 app.use(helmet({
   contentSecurityPolicy: false,
-  crossOriginEmbedderPolicy: false
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' }
 }));
 
 // Enable compression for responses
 app.use(compression());
 
-// Enable CORS for Vite frontend (allows localhost on any port)
+// Enable CORS for Vite frontend (allows localhost on any port and the deployed production frontend)
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    if (/^https?:\/\/localhost:\d+$/.test(origin) || /^https?:\/\/127\.0\.0\.1:\d+$/.test(origin)) {
+    if (
+      /^https?:\/\/localhost:\d+$/.test(origin) || 
+      /^https?:\/\/127\.0\.0\.1:\d+$/.test(origin) || 
+      origin === 'https://nexus-hrms-payroll.vercel.app' || 
+      /^https?:\/\/.*\.vercel\.app$/.test(origin)
+    ) {
       return callback(null, true);
     }
     callback(null, true);
   },
-  credentials: true
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // Body parsing middleware
