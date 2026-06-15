@@ -196,10 +196,42 @@ app.use((err, req, res, next) => {
 });
 
 // Start Server & Connect Database
+const printRegisteredRoutes = (app) => {
+  const routes = [];
+  app._router.stack.forEach((middleware) => {
+    if (middleware.route) {
+      const methods = Object.keys(middleware.route.methods).join(', ').toUpperCase();
+      routes.push(`${methods} ${middleware.route.path}`);
+    } else if (middleware.name === 'router') {
+      const basePath = middleware.regexp.source
+        .replace('^\\', '')
+        .replace('\\/?(?=\\/|$)', '')
+        .replace('\\/?$', '')
+        .replace('(?=\\/|$)', '')
+        .replace(/\\\//g, '/');
+      
+      middleware.handle.stack.forEach((handler) => {
+        if (handler.route) {
+          const path = handler.route.path === '/' ? '' : handler.route.path;
+          const methods = Object.keys(handler.route.methods).join(', ').toUpperCase();
+          routes.push(`${methods} ${basePath}${path}`);
+        }
+      });
+    }
+  });
+  console.log('\n==================================================');
+  console.log('             REGISTERED EXPRESS API ROUTES        ');
+  console.log('==================================================');
+  routes.forEach(r => console.log(r));
+  console.log('==================================================\n');
+};
+
 const startServer = async () => {
   try {
     // Attempt Database connection on startup
     await connectDB();
+    
+    printRegisteredRoutes(app);
     
     app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
