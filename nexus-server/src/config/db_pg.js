@@ -77,17 +77,28 @@ class PostgresRequest {
     pgSql = pgSql.replace(/\bIsOptional\s*=\s*0\b/gi, 'IsOptional = false');
     pgSql = pgSql.replace(/\bIsCarryForward\s*=\s*1\b/gi, 'IsCarryForward = true');
     pgSql = pgSql.replace(/\bIsCarryForward\s*=\s*0\b/gi, 'IsCarryForward = false');
+    pgSql = pgSql.replace(/\bIsUsed\s*=\s*1\b/gi, 'IsUsed = true');
+    pgSql = pgSql.replace(/\bIsUsed\s*=\s*0\b/gi, 'IsUsed = false');
 
-    pgSql = pgSql.replace(/INSERT\s+INTO\s+dbo\.SalaryRevisions\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+),\s*1\s*\)/gi,
-      'INSERT INTO dbo.SalaryRevisions ($1) VALUES ($2, true)');
-    pgSql = pgSql.replace(/INSERT\s+INTO\s+dbo\.SalaryRevisions\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+),\s*0\s*\)/gi,
-      'INSERT INTO dbo.SalaryRevisions ($1) VALUES ($2, false)');
+    // Robust table-specific replacements for raw 1 and 0 literals
+    if (pgSql.toLowerCase().includes('dbo.notifications')) {
+      pgSql = pgSql.replace(/,\s*0\s*,\s*getdate\(\)/gi, ', false, GETDATE()');
+      pgSql = pgSql.replace(/,\s*0\s*,\s*current_timestamp/gi, ', false, CURRENT_TIMESTAMP');
+    }
 
-    pgSql = pgSql.replace(/INSERT\s+INTO\s+dbo\.Notifications\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+),\s*0\s*,\s*GETDATE\(\)\s*\)/gi,
-      'INSERT INTO dbo.Notifications ($1) VALUES ($2, false, GETDATE())');
+    if (pgSql.toLowerCase().includes('dbo.payrollapprovalotp')) {
+      pgSql = pgSql.replace(/,\s*0\s*\)/gi, ', false)');
+      pgSql = pgSql.replace(/,\s*1\s*\)/gi, ', true)');
+    }
 
-    pgSql = pgSql.replace(/INSERT\s+INTO\s+dbo\.PayrollApprovalOtp\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+),\s*0\s*\)/gi,
-      'INSERT INTO dbo.PayrollApprovalOtp ($1) VALUES ($2, false)');
+    if (pgSql.toLowerCase().includes('dbo.salaryrevisions')) {
+      pgSql = pgSql.replace(/,\s*1\s*,\s*getdate\(\)/gi, ', true, GETDATE()');
+      pgSql = pgSql.replace(/,\s*0\s*,\s*getdate\(\)/gi, ', false, GETDATE()');
+      pgSql = pgSql.replace(/,\s*1\s*,\s*current_timestamp/gi, ', true, CURRENT_TIMESTAMP');
+      pgSql = pgSql.replace(/,\s*0\s*,\s*current_timestamp/gi, ', false, CURRENT_TIMESTAMP');
+      pgSql = pgSql.replace(/,\s*1\s*\)/gi, ', true)');
+      pgSql = pgSql.replace(/,\s*0\s*\)/gi, ', false)');
+    }
 
     const params = [];
     const paramRegex = /@([a-zA-Z0-9_]+)/g;
