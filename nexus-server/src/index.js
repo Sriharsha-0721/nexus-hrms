@@ -86,9 +86,50 @@ app.use('/api/profile-requests', profileRequestRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/export', exportRoutes);
 
-// Health Check route
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Nexus HRMS Server is running.' });
+// Health Check route (returns application status and DB connectivity, used by Render health checks)
+app.get('/api/health', async (req, res) => {
+  const provider = process.env.DB_PROVIDER || 'mssql';
+  try {
+    const pool = await connectDB();
+    let databaseVersion = 'Unknown';
+    let activeSchema = 'Unknown';
+    
+    if (provider === 'postgres') {
+      const versionRes = await pool.request().query('SELECT version() AS version, current_schema() AS schema');
+      if (versionRes.recordset && versionRes.recordset.length > 0) {
+        databaseVersion = versionRes.recordset[0].version;
+        activeSchema = versionRes.recordset[0].schema;
+      }
+    } else {
+      const versionRes = await pool.request().query('SELECT @@VERSION AS version, SCHEMA_NAME() AS schema');
+      if (versionRes.recordset && versionRes.recordset.length > 0) {
+        databaseVersion = versionRes.recordset[0].version;
+        activeSchema = versionRes.recordset[0].schema;
+      }
+    }
+
+    res.json({
+      status: 'OK',
+      message: 'Nexus HRMS Server is running.',
+      database: {
+        provider,
+        connectionStatus: 'Connected',
+        databaseVersion,
+        activeSchema
+      }
+    });
+  } catch (err) {
+    console.error('[HEALTH CHECK ERROR] Database connection check failed:', err);
+    res.status(500).json({
+      status: 'ERROR',
+      message: 'Nexus HRMS Server is running but database connection failed.',
+      database: {
+        provider,
+        connectionStatus: 'Disconnected',
+        error: err.message
+      }
+    });
+  }
 });
 
 // Database Health Check route
