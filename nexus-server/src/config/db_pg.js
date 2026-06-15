@@ -1,22 +1,29 @@
 import pg from 'pg';
 import dotenv from 'dotenv';
+import dns from 'dns';
 
 dotenv.config();
 
 const { Pool } = pg;
 
+// Custom lookup function to force IPv4 and bypass IPv6 connection errors on Render
+const ipv4Lookup = (hostname, options, callback) => {
+  dns.lookup(hostname, { ...options, family: 4 }, callback);
+};
+
 // Parse connection string or construct from credentials
 const connectionString = process.env.DATABASE_URL;
 
 const config = connectionString 
-  ? { connectionString, ssl: { rejectUnauthorized: false } }
+  ? { connectionString, ssl: { rejectUnauthorized: false }, lookup: ipv4Lookup }
   : {
       user: process.env.DB_USER || 'postgres',
       password: process.env.DB_PASSWORD,
       host: process.env.DB_SERVER || 'localhost',
       database: process.env.DB_DATABASE || 'postgres',
       port: parseInt(process.env.DB_PORT, 10) || 5432,
-      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
+      ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false,
+      lookup: ipv4Lookup
     };
 
 const pool = new Pool(config);
