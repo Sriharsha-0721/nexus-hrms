@@ -24,11 +24,16 @@ import { connectDB } from './config/db.js';
 dotenv.config();
 
 // Validate essential environment variables on startup
-const requiredEnvVars = [
-  'JWT_SECRET',
-  'DB_SERVER',
-  'DB_DATABASE'
-];
+const requiredEnvVars = ['JWT_SECRET'];
+const provider = process.env.DB_PROVIDER || 'postgres';
+
+if (provider === 'postgres') {
+  if (!process.env.DATABASE_URL) {
+    requiredEnvVars.push('DB_SERVER', 'DB_DATABASE');
+  }
+} else {
+  requiredEnvVars.push('DB_SERVER', 'DB_DATABASE');
+}
 
 if (process.env.OTP_MODE !== 'local') {
   requiredEnvVars.push('SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASSWORD');
