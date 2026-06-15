@@ -6,8 +6,8 @@ This report presents a side-by-side comparison of the Microsoft SQL Server (MSSQ
 
 * **Total Tables Expected:** 27
 * **Total Tables Created in PG:** 27
-* **Total Rows Imported in PG:** 11659
-* **Discrepancy (Failed Imports / Row Count Mismatch):** 1564
+* **Total Rows Imported in PG:** 11800
+* **Discrepancy (Failed Imports / Row Count Mismatch):** 1443
 * **Query Translation Failures:** 0
 * **Unsupported MSSQL Syntax Discovered:** None (All compatibility issues resolved)
 
@@ -24,7 +24,7 @@ This report presents a side-by-side comparison of the Microsoft SQL Server (MSSQ
 | **Leave Balance (Sick)** | 6 days | 0 days | ❌ |
 | **Leave Balance (Unpaid)** | 21 days | 0 days | ❌ |
 | **Dashboard Active Employees** | 31 | 34 | ❌ |
-| **Dashboard Total Payroll** | ₹15980723.24 | ₹0 | ❌ |
+| **Dashboard Total Payroll** | ₹15980723.24 | ₹2655068.4 | ❌ |
 | **Dashboard On Leave Today** | 0 | 0 | ✅ |
 | **Dashboard Avg Attendance** | 100% | 0% | ❌ |
 | **Authentication Test (superadmin)**| Success (Sneha Iyer) | Success (Sneha Iyer) | ✅ |
@@ -52,14 +52,14 @@ This report presents a side-by-side comparison of the Microsoft SQL Server (MSSQ
 | `EmployeeProfileChangeRequests` | 1 | 0 | ❌ |
 | `AdminEmployeeMapping` | 30 | 30 | ✅ |
 | `EmployeeReporting` | 33 | 33 | ✅ |
-| `PayrollRuns` | 14 | 5 | ❌ |
-| `PayrollApprovalOtp` | 32 | 0 | ❌ |
-| `EmployeeSalarysDetails` | 387 | 170 | ❌ |
-| `PayrollRunSummary` | 13 | 5 | ❌ |
-| `PayslipDispatchLogs` | 232 | 0 | ❌ |
-| `AuditLogs` | 143 | 5 | ❌ |
+| `PayrollRuns` | 14 | 7 | ❌ |
+| `PayrollApprovalOtp` | 32 | 9 | ❌ |
+| `EmployeeSalarysDetails` | 387 | 208 | ❌ |
+| `PayrollRunSummary` | 13 | 6 | ❌ |
+| `PayslipDispatchLogs` | 232 | 34 | ❌ |
+| `AuditLogs` | 143 | 23 | ❌ |
 | `ImportAuditLogs` | 0 | 0 | ✅ |
-| `Notifications` | 32 | 3 | ❌ |
+| `Notifications` | 32 | 42 | ❌ |
 | `EmployeeDocuments` | 0 | 0 | ✅ |
 | `Staging_Employees` | 0 | 0 | ✅ |
 
@@ -79,7 +79,7 @@ The validation phase has failed or is incomplete.
 Reason(s):
 
 
-* There is a discrepancy of 1564 rows between MSSQL and PostgreSQL.
+* There is a discrepancy of 1443 rows between MSSQL and PostgreSQL.
 
 
 Please resolve the connection settings or schema compilation errors before proceeding.

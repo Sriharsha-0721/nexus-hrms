@@ -68,10 +68,10 @@ export const downloadPayslipPdf = async (payrollId, employeeId, res) => {
     .input('payrollId', sql.Int, payrollId)
     .query(`
        SELECT p.EmpID, p.SalaryMonth, p.SalaryYear, p.DaysInMonth, p.DaysPaid, p.LossOfPay, p.BasicSalary, p.HouseRentAllowance, p.SpecialAllowance, p.MedicalAllowance, p.ConveyanceAllowance, p.OtherAllowance, p.TotalEarnings, p.ProvidentFund, p.ProfessionalTax, p.TDS, p.TotalDeductions, p.NetSalaryPaid, p.PaymentStatus,
-              e.FullName, e.PANNo, e.AadharNo, e.UANNo, e.EmailID AS PersonalEmail, e.BankName, e.BankAccountNo, e.IFSCCode, e.OfficialEmail,
-              COALESCE(NULLIF(m.Designation, ''), desig.DesignationName) AS Designation, 
-              COALESCE(NULLIF(m.Department, ''), dept.DepartmentName) AS Department, 
-              m.DOJ, m.EmpStatus AS EmployeeStatus,
+               COALESCE(p.EmployeeName, e.FullName, m.FirstName + ' ' + m.LastName) AS FullName, e.PANNo, e.AadharNo, e.UANNo, e.EmailID AS PersonalEmail, e.BankName, e.BankAccountNo, e.IFSCCode, e.OfficialEmail,
+               COALESCE(p.Designation, NULLIF(m.Designation, ''), desig.DesignationName) AS Designation, 
+               COALESCE(p.Department, NULLIF(m.Department, ''), dept.DepartmentName) AS Department, 
+               m.DOJ, m.EmpStatus AS EmployeeStatus,
               mgr.FirstName + ' ' + mgr.LastName AS ManagerName,
               run.Version AS PayrollVersion, run.RunDate AS ReleaseDate,
               p.AbsentDays, p.UnpaidLeaveDays
@@ -321,13 +321,16 @@ export const downloadPayrollSummaryPdf = async (runId, res) => {
   const employeesResult = await pool.request()
     .input('runId', sql.Int, runId)
     .query(`
-      SELECT p.EmpID, e.FullName, COALESCE(NULLIF(m.Department, ''), dept.DepartmentName) AS Department, p.TotalEarnings, p.TotalDeductions, p.NetSalaryPaid
+      SELECT p.EmpID, 
+             COALESCE(p.EmployeeName, e.FullName, m.FirstName + ' ' + m.LastName) AS FullName, 
+             COALESCE(p.Department, NULLIF(m.Department, ''), dept.DepartmentName) AS Department, 
+             p.TotalEarnings, p.TotalDeductions, p.NetSalaryPaid
       FROM dbo.EmployeeSalarysDetails p
       JOIN dbo.EmployeeMaster m ON p.EmpID = m.EmpID
       LEFT JOIN dbo.EmployeeDetails e ON p.EmpID = e.EmpID
       LEFT JOIN dbo.Departments dept ON m.DepartmentID = dept.DepartmentID
       WHERE p.RunID = @runId
-      ORDER BY Department, e.FullName
+      ORDER BY Department, FullName
     `);
 
   const exceptionsResult = await pool.request()

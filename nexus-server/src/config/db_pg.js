@@ -26,6 +26,7 @@ let poolPromise;
 export const connectDB = async () => {
   if (!poolPromise) {
     pool.request = () => new PostgresRequest(pool);
+    pool.transaction = () => new PostgresTransaction(pool);
     poolPromise = pool.connect()
       .then((client) => {
         console.log('[PG SPIKE] Connected to PostgreSQL successfully!');
@@ -41,6 +42,124 @@ export const connectDB = async () => {
   return poolPromise;
 };
 
+const CASED_COLUMN_NAMES = new Set([
+  // EmployeeMaster
+  'EmpID', 'FirstName', 'LastName', 'DOJ', 'Designation', 'Department', 'EmpStatus', 'DepartmentID', 'DesignationID', 'IsPayrollEligible',
+  // EmployeeDetails
+  'FullName', 'DOB', 'Gender', 'Address', 'Phone', 'EmailID', 'PersonalEmail', 'OfficialEmail', 'BankName', 'BankAccountNo', 'IFSCCode', 'UPPID', 'MaritalStatus', 'Nationality', 'EmploymentType', 'AadharNo', 'PANNo', 'UANNo', 'EmergencyContactName', 'EmergencyContactPhone',
+  // AdminLogins & EmployeeLogins
+  'AppUserID', 'Username', 'Password', 'Role', 'LastLogin', 'UserStatus', 'FailedAttempts', 'LockoutUntil', 'EmployeeUserID',
+  // EmployeeAttendance
+  'AttendanceID', 'AttendanceDate', 'AttendanceStatus', 'CheckInTime', 'CheckOutTime', 'ClockIn', 'ClockOut', 'TotalHours',
+  // EmployeeLeaveDetails
+  'LeaveID', 'LeaveType', 'FromDate', 'ToDate', 'LeaveStatus', 'LeaveDate', 'LeaveReason', 'LeaveDays', 'LeaveStartDate', 'LeaveEndDate', 'TotalDays', 'IsPaidLeave', 'ApprovedBy',
+  // EmployeeLogDetails
+  'LogID', 'LogDate', 'LoginTime', 'LogoutTime',
+  // SalaryRevisions
+  'RevisionID', 'EffectiveDate', 'BasicSalary', 'HouseRentAllowance', 'SpecialAllowance', 'MedicalAllowance', 'ConveyanceAllowance', 'OtherAllowance', 'ProvidentFundPercent', 'ProfessionalTaxPercent', 'TDS', 'Remarks', 'IsActive', 'CreatedAt',
+  // EmployeeProfileChangeRequests
+  'RequestID', 'RequestedData', 'Status', 'Reason', 'RequestedAt', 'ProcessedBy', 'ProcessedAt',
+  // AdminEmployeeMapping & EmployeeReporting
+  'MappingID', 'AdminEmpID', 'EmployeeEmpID', 'ReportingID', 'ManagerEmpID',
+  // PayrollRuns
+  'RunID', 'SalaryMonth', 'SalaryYear', 'Version', 'RunDate', 'ApprovedDate', 'GeneratedBy', 'ReleasedBy', 'ReleasedAt',
+  // PayrollApprovalOtp
+  'OtpID', 'GeneratedForAdminID', 'OtpCode', 'ExpiresAt', 'IsVerified',
+  // EmployeeSalarysDetails
+  'SalaryID', 'DaysPaid', 'DaysInMonth', 'LossOfPay', 'ITPAN', 'ProvidentFund', 'HealthInsurance', 'ProfessionalTax', 'NetSalaryPaid', 'PaymentMode', 'TransactionRef', 'PaymentDate', 'PFNo', 'IFSC', 'CompOffEncashment', 'PaymentStatus',
+  // PayrollRunSummary
+  'SummaryID', 'TotalEmployees', 'EmployeesProcessed', 'EmployeesSkipped', 'GrossAmount', 'TotalPF', 'TotalPT', 'TotalTDS', 'TotalLOP', 'NetPayable', 'ExceptionsCount',
+  // PayslipDispatchLogs
+  'DispatchID', 'RecipientEmail', 'DispatchStatus', 'ErrorMessage', 'DispatchedAt', 'EmailAddress',
+  // AuditLogs & ImportAuditLogs
+  'AuditID', 'ActionType', 'ActionDesc', 'ActionTime', 'ImportID', 'FileType', 'UploadedBy', 'UploadedDate', 'TotalRows', 'SuccessRows', 'FailedRows',
+  // Notifications & EmployeeDocuments
+  'NotificationID', 'Title', 'Message', 'IsRead', 'Category', 'RelatedID', 'DocID', 'DocName', 'DocType', 'FilePath', 'UploadedAt',
+  // PasswordResetTokens
+  'TokenID', 'TokenHash',
+  // Frontend/API CamelCase renames
+  'firstName', 'lastName', 'empId', 'userId', 'employeeId', 'legacyEmpId', 'managerName', 'payrollVersion', 'releaseDate', 'absentDays', 'unpaidLeaveDays', 'roleName'
+]);
+
+const CASED_NAME_MAP = {};
+for (const name of CASED_COLUMN_NAMES) {
+  CASED_NAME_MAP[name.toLowerCase()] = name;
+}
+
+const normalizeRowKeys = (row, sqlText = '') => {
+  if (!row || typeof row !== 'object') return row;
+
+  const normalized = { ...row };
+
+  const sqlAliases = [];
+  const aliasRegex = /\bAS\s+([a-zA-Z0-9_]+)\b/gi;
+  let match;
+  while ((match = aliasRegex.exec(sqlText)) !== null) {
+    sqlAliases.push(match[1]);
+  }
+
+  const aliasMap = {};
+  for (const alias of sqlAliases) {
+    aliasMap[alias.toLowerCase()] = alias;
+  }
+
+  for (const key of Object.keys(row)) {
+    const lowerKey = key.toLowerCase();
+    
+    if (aliasMap[lowerKey] !== undefined) {
+      normalized[aliasMap[lowerKey]] = row[key];
+    } else if (CASED_NAME_MAP[lowerKey] !== undefined) {
+      normalized[CASED_NAME_MAP[lowerKey]] = row[key];
+    }
+  }
+
+  return makeCaseInsensitiveRow(normalized);
+};
+
+// Helper to make PostgreSQL query result rows case-insensitive (matching MSSQL behavior)
+const makeCaseInsensitiveRow = (row) => {
+  if (!row || typeof row !== 'object') return row;
+  
+  const lowerKeys = {};
+  for (const key of Object.keys(row)) {
+    lowerKeys[key.toLowerCase()] = key;
+  }
+
+  return new Proxy(row, {
+    get(target, prop) {
+      if (typeof prop === 'string') {
+        const lowerProp = prop.toLowerCase();
+        const actualKey = lowerKeys[lowerProp];
+        if (actualKey !== undefined) {
+          return target[actualKey];
+        }
+      }
+      return target[prop];
+    },
+    has(target, prop) {
+      if (typeof prop === 'string') {
+        const lowerProp = prop.toLowerCase();
+        if (lowerKeys[lowerProp] !== undefined) {
+          return true;
+        }
+      }
+      return prop in target;
+    },
+    set(target, prop, value) {
+      if (typeof prop === 'string') {
+        const lowerProp = prop.toLowerCase();
+        const actualKey = lowerKeys[lowerProp];
+        if (actualKey !== undefined) {
+          target[actualKey] = value;
+          return true;
+        }
+      }
+      target[prop] = value;
+      return true;
+    }
+  });
+};
+
 // Request wrapper to match the MSSQL pool.request() pattern
 class PostgresRequest {
   constructor(poolOrClient) {
@@ -49,11 +168,21 @@ class PostgresRequest {
   }
 
   input(name, type, value) {
-    let processedValue = value;
-    if (type === 'Bit' || name.toLowerCase().startsWith('is')) {
-      if (value === 1 || value === '1') {
+    let actualType = type;
+    let actualValue = value;
+    
+    // If only 2 arguments are provided (name, value)
+    if (value === undefined) {
+      actualValue = type;
+      actualType = undefined;
+    }
+    
+    let processedValue = actualValue;
+    const typeStr = actualType ? actualType.toString() : '';
+    if (typeStr === 'Bit' || name.toLowerCase().startsWith('is')) {
+      if (actualValue === 1 || actualValue === '1') {
         processedValue = true;
-      } else if (value === 0 || value === '0') {
+      } else if (actualValue === 0 || actualValue === '0') {
         processedValue = false;
       }
     }
@@ -82,6 +211,8 @@ class PostgresRequest {
 
     // Robust table-specific replacements for raw 1 and 0 literals
     if (pgSql.toLowerCase().includes('dbo.notifications')) {
+      pgSql = pgSql.replace(/,\s*0\s*,/g, ', false,');
+      pgSql = pgSql.replace(/,\s*1\s*,/g, ', true,');
       pgSql = pgSql.replace(/,\s*0\s*,\s*getdate\(\)/gi, ', false, GETDATE()');
       pgSql = pgSql.replace(/,\s*0\s*,\s*current_timestamp/gi, ', false, CURRENT_TIMESTAMP');
     }
@@ -99,20 +230,6 @@ class PostgresRequest {
       pgSql = pgSql.replace(/,\s*1\s*\)/gi, ', true)');
       pgSql = pgSql.replace(/,\s*0\s*\)/gi, ', false)');
     }
-
-    const params = [];
-    const paramRegex = /@([a-zA-Z0-9_]+)/g;
-    const paramMap = {};
-    let paramIndex = 1;
-
-    // Replace @name with $1, $2, etc., and populate params array in order
-    pgSql = pgSql.replace(paramRegex, (fullMatch, paramName) => {
-      if (!(paramName in paramMap)) {
-        paramMap[paramName] = paramIndex++;
-        params.push(this.inputs[paramName]);
-      }
-      return `$${paramMap[paramName]}`;
-    });
 
     // 1. Replace GETDATE() -> CURRENT_TIMESTAMP
     pgSql = pgSql.replace(/GETDATE\(\)/gi, 'CURRENT_TIMESTAMP');
@@ -178,12 +295,42 @@ class PostgresRequest {
       }
     }
 
-    const res = await this.poolOrClient.query(pgSql, params);
-    return {
-      recordset: res.rows,
-      rowsAffected: [res.rowCount],
-      recordsets: [res.rows]
+    // Split by semicolons not inside single quotes
+    const statements = pgSql.split(/;(?=(?:[^']*'[^']*')*[^']*$)/).map(s => s.trim()).filter(s => s.length > 0);
+
+    const executeStatement = async (stmt) => {
+      const stmtParams = [];
+      const paramRegex = /@([a-zA-Z0-9_]+)/g;
+      let paramIndex = 1;
+      
+      const pgStmt = stmt.replace(paramRegex, (fullMatch, paramName) => {
+        stmtParams.push(this.inputs[paramName]);
+        return `$${paramIndex++}`;
+      });
+
+      return await this.poolOrClient.query(pgStmt, stmtParams);
     };
+
+    if (statements.length > 1) {
+      let lastRes = null;
+      for (const statement of statements) {
+        lastRes = await executeStatement(statement);
+      }
+      const wrappedRows = lastRes.rows ? lastRes.rows.map(row => normalizeRowKeys(row, pgSql)) : [];
+      return {
+        recordset: wrappedRows,
+        rowsAffected: [lastRes.rowCount],
+        recordsets: [wrappedRows]
+      };
+    } else {
+      const res = await executeStatement(statements[0] || pgSql);
+      const wrappedRows = res.rows ? res.rows.map(row => normalizeRowKeys(row, pgSql)) : [];
+      return {
+        recordset: wrappedRows,
+        rowsAffected: [res.rowCount],
+        recordsets: [wrappedRows]
+      };
+    }
   }
 }
 
@@ -214,12 +361,21 @@ class PostgresTransaction {
   }
 }
 
+const createSqlType = (typeName) => {
+  const fn = function() { return typeName; };
+  fn.toString = () => typeName;
+  fn.valueOf = () => typeName;
+  return fn;
+};
+
 // SQL compatibility constants
 export const sql = {
-  Int: 'Int',
-  VarChar: 'VarChar',
-  Bit: 'Bit',
-  Date: 'Date',
+  Int: createSqlType('Int'),
+  VarChar: createSqlType('VarChar'),
+  Decimal: createSqlType('Decimal'),
+  Bit: createSqlType('Bit'),
+  Date: createSqlType('Date'),
+  MAX: 'MAX',
   Request: PostgresRequest,
   Transaction: PostgresTransaction
 };
