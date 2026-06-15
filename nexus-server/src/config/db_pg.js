@@ -168,6 +168,16 @@ class PostgresRequest {
     // 9. Replace MONTH(FromDate) -> EXTRACT(MONTH FROM FromDate)
     pgSql = pgSql.replace(/MONTH\(([a-zA-Z0-9_.]+)\)/gi, 'EXTRACT(MONTH FROM $1)');
 
+    // 10. Relocate RETURNING clause to the end of the query (PostgreSQL syntax requirement)
+    if (pgSql.includes('RETURNING')) {
+      const match = pgSql.match(/RETURNING\s+([a-zA-Z0-9_*.,\s]+?)(?=\b(VALUES|WHERE)\b)/i);
+      if (match) {
+        const returningClause = match[0];
+        pgSql = pgSql.replace(returningClause, '');
+        pgSql = pgSql.trim() + ' ' + returningClause.trim();
+      }
+    }
+
     const res = await this.poolOrClient.query(pgSql, params);
     return {
       recordset: res.rows,
