@@ -6,8 +6,8 @@ This report presents a side-by-side comparison of the Microsoft SQL Server (MSSQ
 
 * **Total Tables Expected:** 27
 * **Total Tables Created in PG:** 27
-* **Total Rows Imported in PG:** 11800
-* **Discrepancy (Failed Imports / Row Count Mismatch):** 1443
+* **Total Rows Imported in PG:** 12110
+* **Discrepancy (Failed Imports / Row Count Mismatch):** 1313
 * **Query Translation Failures:** 0
 * **Unsupported MSSQL Syntax Discovered:** None (All compatibility issues resolved)
 
@@ -18,13 +18,13 @@ This report presents a side-by-side comparison of the Microsoft SQL Server (MSSQ
 | Metric | Microsoft SQL Server (Baseline) | Supabase PostgreSQL | Matches? |
 | :--- | :--- | :--- | :---: |
 | **Connection Status** | Connected | Connected | ✅ |
-| **Total Active Employees** | 31 | 34 | ❌ |
+| **Total Active Employees** | 31 | 31 | ✅ |
 | **Total Departments** | 6 | 6 | ✅ |
 | **Leave Balance (Casual)** | 20 days | 0 days | ❌ |
 | **Leave Balance (Sick)** | 6 days | 0 days | ❌ |
 | **Leave Balance (Unpaid)** | 21 days | 0 days | ❌ |
-| **Dashboard Active Employees** | 31 | 34 | ❌ |
-| **Dashboard Total Payroll** | ₹15980723.24 | ₹2655068.4 | ❌ |
+| **Dashboard Active Employees** | 31 | 31 | ✅ |
+| **Dashboard Total Payroll** | ₹15980723.24 | ₹10039702.89 | ❌ |
 | **Dashboard On Leave Today** | 0 | 0 | ✅ |
 | **Dashboard Avg Attendance** | 100% | 0% | ❌ |
 | **Authentication Test (superadmin)**| Success (Sneha Iyer) | Success (Sneha Iyer) | ✅ |
@@ -49,17 +49,17 @@ This report presents a side-by-side comparison of the Microsoft SQL Server (MSSQ
 | `EmployeeLeaveDetails` | 23 | 23 | ✅ |
 | `EmployeeLogDetails` | 0 | 0 | ✅ |
 | `SalaryRevisions` | 40 | 40 | ✅ |
-| `EmployeeProfileChangeRequests` | 1 | 0 | ❌ |
+| `EmployeeProfileChangeRequests` | 1 | 1 | ✅ |
 | `AdminEmployeeMapping` | 30 | 30 | ✅ |
 | `EmployeeReporting` | 33 | 33 | ✅ |
-| `PayrollRuns` | 14 | 7 | ❌ |
-| `PayrollApprovalOtp` | 32 | 9 | ❌ |
-| `EmployeeSalarysDetails` | 387 | 208 | ❌ |
-| `PayrollRunSummary` | 13 | 6 | ❌ |
-| `PayslipDispatchLogs` | 232 | 34 | ❌ |
-| `AuditLogs` | 143 | 23 | ❌ |
+| `PayrollRuns` | 14 | 9 | ❌ |
+| `PayrollApprovalOtp` | 32 | 12 | ❌ |
+| `EmployeeSalarysDetails` | 387 | 300 | ❌ |
+| `PayrollRunSummary` | 13 | 9 | ❌ |
+| `PayslipDispatchLogs` | 232 | 130 | ❌ |
+| `AuditLogs` | 143 | 46 | ❌ |
 | `ImportAuditLogs` | 0 | 0 | ✅ |
-| `Notifications` | 32 | 42 | ❌ |
+| `Notifications` | 32 | 132 | ❌ |
 | `EmployeeDocuments` | 0 | 0 | ✅ |
 | `Staging_Employees` | 0 | 0 | ✅ |
 
@@ -79,7 +79,7 @@ The validation phase has failed or is incomplete.
 Reason(s):
 
 
-* There is a discrepancy of 1443 rows between MSSQL and PostgreSQL.
+* There is a discrepancy of 1313 rows between MSSQL and PostgreSQL.
 
 
 Please resolve the connection settings or schema compilation errors before proceeding.

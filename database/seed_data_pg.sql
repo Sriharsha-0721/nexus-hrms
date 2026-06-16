@@ -120,7 +120,7 @@ BEGIN
         VALUES (super_admin_id, 'Harsha Reddy', '1980-04-12', 'Male', 'Jubilee Hills, Hyderabad', '+919988771122', 'harsha.r@nexus.com', 'State Bank of India', '10294857201', 'SBIN0001234', 'LEGACY_ADM01', '998877665544', 'AAAAA9999A', '100987654321', 'Full-time', 'Married', 'Indian');
         
         INSERT INTO dbo.AdminLogins (EmpID, Username, Password, Role, UserStatus)
-        VALUES (super_admin_id, 'superadmin@nexus.com', '$2a$10$UpjFFPeMIoipNKfM/Le3WudPIxdd4JKLpfy36zYDT6evHO70XqUvS', 'SuperAdmin', 'Active');
+        VALUES (super_admin_id, 'harsha.r@nexus.com', '$2a$10$UpjFFPeMIoipNKfM/Le3WudPIxdd4JKLpfy36zYDT6evHO70XqUvS', 'SuperAdmin', 'Active');
     ELSE
         SELECT EmpID INTO super_admin_id FROM dbo.EmployeeDetails WHERE EmailID = 'harsha.r@nexus.com';
     END IF;

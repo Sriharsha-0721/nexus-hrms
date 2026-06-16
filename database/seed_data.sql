@@ -144,7 +144,7 @@ BEGIN
     VALUES (@SuperAdminID, 'Harsha Reddy', '1980-04-12', 'Male', 'Jubilee Hills, Hyderabad', '+919988771122', 'harsha.r@nexus.com', 'State Bank of India', '10294857201', 'SBIN0001234', 'LEGACY_ADM01', '998877665544', 'AAAAA9999A', '100987654321', 'Full-time', 'Married', 'Indian');
     
     INSERT INTO dbo.AdminLogins (EmpID, Username, Password, Role, UserStatus)
-    VALUES (@SuperAdminID, 'superadmin@nexus.com', '$2a$10$UpjFFPeMIoipNKfM/Le3WudPIxdd4JKLpfy36zYDT6evHO70XqUvS', 'SuperAdmin', 'Active');
+    VALUES (@SuperAdminID, 'harsha.r@nexus.com', '$2a$10$UpjFFPeMIoipNKfM/Le3WudPIxdd4JKLpfy36zYDT6evHO70XqUvS', 'SuperAdmin', 'Active');
 END
 
 -- HRAdmin 1: Sneha Iyer

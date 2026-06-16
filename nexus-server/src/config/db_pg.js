@@ -238,23 +238,11 @@ class PostgresRequest {
     pgSql = pgSql.replace(/DATEADD\(minute,\s*(\d+),\s*CURRENT_TIMESTAMP\)/gi, "CURRENT_TIMESTAMP + INTERVAL '$1 minutes'");
     pgSql = pgSql.replace(/DATEADD\(minute,\s*(\d+),\s*GETDATE\(\)\)/gi, "CURRENT_TIMESTAMP + INTERVAL '$1 minutes'");
 
-    // 3. Replace OUTPUT inserted.ColName -> RETURNING ColName
-    // Parse: OUTPUT inserted.LeaveID AS leave_id
-    pgSql = pgSql.replace(/OUTPUT\s+inserted\.([a-zA-Z0-9_*]+)(\s+AS\s+[a-zA-Z0-9_]+)?/gi, 'RETURNING $1$2');
-    // Parse compound OUTPUT items: OUTPUT inserted.A, inserted.B AS b
-    pgSql = pgSql.replace(/OUTPUT\s+inserted\.([a-zA-Z0-9_.]+)(?:\s+AS\s+([a-zA-Z0-9_]+))?,\s*inserted\.([a-zA-Z0-9_.]+)(?:\s+AS\s+([a-zA-Z0-9_]+))?/gi, 'RETURNING $1 AS $2, $3 AS $4');
-    
-    // Fallback: match simple OUTPUT inserted.LeaveID AS leave_id, inserted.EmpID AS employee_id, ...
-    pgSql = pgSql.replace(/OUTPUT\s+inserted\.([a-zA-Z0-9_]+)\s+AS\s+([a-zA-Z0-9_]+),\s*inserted\.([a-zA-Z0-9_]+)\s+AS\s+([a-zA-Z0-9_]+),\s*inserted\.([a-zA-Z0-9_]+)\s+AS\s+([a-zA-Z0-9_]+),\s*inserted\.([a-zA-Z0-9_]+)\s+AS\s+([a-zA-Z0-9_]+),\s*inserted\.([a-zA-Z0-9_]+)\s+AS\s+([a-zA-Z0-9_]+),\s*inserted\.([a-zA-Z0-9_]+)\s+AS\s+([a-zA-Z0-9_]+)/gi, 
-      'RETURNING $1 AS $2, $3 AS $4, $5 AS $6, $7 AS $8, $9 AS $10, $11 AS $12');
-    
-    // Explicit mappings for leaveService applyLeave insert OUTPUT statement:
-    pgSql = pgSql.replace(/OUTPUT\s+inserted\.LeaveID\s+AS\s+leave_id,\s+inserted\.EmpID\s+AS\s+employee_id,\s+inserted\.LeaveType\s+AS\s+leave_type,\s+inserted\.FromDate\s+AS\s+start_date,\s+inserted\.ToDate\s+AS\s+end_date,\s+inserted\.LeaveStatus\s+AS\s+status/gi, 
-      'RETURNING LeaveID AS leave_id, EmpID AS employee_id, LeaveType AS leave_type, FromDate AS start_date, ToDate AS end_date, LeaveStatus AS status');
-    
-    // Explicit mappings for leaveService approveRejectLeave update OUTPUT statement:
-    pgSql = pgSql.replace(/OUTPUT\s+inserted\.LeaveID\s+AS\s+leave_id,\s+inserted\.EmpID\s+AS\s+employee_id,\s+inserted\.LeaveType\s+AS\s+leave_type,\s+inserted\.LeaveStatus\s+AS\s+status,\s+inserted\.ApprovedBy\s+AS\s+approved_by/gi, 
-      'RETURNING LeaveID AS leave_id, EmpID AS employee_id, LeaveType AS leave_type, LeaveStatus AS status, ApprovedBy AS approved_by');
+    // 3. Translate OUTPUT clause for PostgreSQL
+    // Strip inserted. and deleted. prefixes from fields
+    pgSql = pgSql.replace(/\b(inserted|deleted)\./gi, '');
+    // Replace OUTPUT with RETURNING
+    pgSql = pgSql.replace(/\bOUTPUT\b/gi, 'RETURNING');
 
     // 4. Replace TOP N -> LIMIT N
     if (/SELECT\s+TOP\s+(\d+)/i.test(pgSql)) {
