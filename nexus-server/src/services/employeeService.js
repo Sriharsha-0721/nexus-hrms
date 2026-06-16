@@ -429,7 +429,7 @@ export const employeeService = {
             .input('status', sql.VarChar, newStatus)
             .query(`
               INSERT INTO dbo.AuditLogs (ActorEmpID, ActionType, ActionDesc)
-              VALUES (@actorEmpId, 'EMPLOYEE_STATUS_CHANGE', CONCAT('Changed status of employee ID ', @id, ' to ', @status))
+              VALUES (@actorEmpId, 'EMPLOYEE_STATUS_CHANGE', CONCAT('Changed status of employee ID ', CAST(@id AS VARCHAR), ' to ', CAST(@status AS VARCHAR)))
             `);
             
           await transaction.request()
@@ -610,7 +610,7 @@ export const employeeService = {
         .input('id', sql.Int, id)
         .query(`
           INSERT INTO dbo.AuditLogs (ActorEmpID, ActionType, ActionDesc)
-          VALUES (@actorEmpId, 'EMPLOYEE_UPDATE', CONCAT('Updated details for employee ID ', @id))
+          VALUES (@actorEmpId, 'EMPLOYEE_UPDATE', CONCAT('Updated details for employee ID ', CAST(@id AS VARCHAR)))
         `);
 
       await transaction.request()
@@ -662,7 +662,7 @@ export const employeeService = {
         .input('id', sql.Int, id)
         .query(`
           INSERT INTO dbo.AuditLogs (ActorEmpID, ActionType, ActionDesc)
-          VALUES (@actorEmpId, 'EMPLOYEE_STATUS_CHANGE', CONCAT('Soft-deleted (status set to Inactive) employee ID ', @id))
+          VALUES (@actorEmpId, 'EMPLOYEE_STATUS_CHANGE', CONCAT('Soft-deleted (status set to Inactive) employee ID ', CAST(@id AS VARCHAR)))
         `);
 
       await transaction.request()
@@ -795,7 +795,7 @@ export const employeeService = {
         .input('count', sql.Int, employeeIds.length)
         .query(`
           INSERT INTO dbo.AuditLogs (ActorEmpID, ActionType, ActionDesc)
-          VALUES (@actorEmpId, 'ADMIN_MAPPING_UPDATE', CONCAT('Assigned ', @count, ' employees to Admin ID ', @adminId))
+          VALUES (@actorEmpId, 'ADMIN_MAPPING_UPDATE', CONCAT('Assigned ', CAST(@count AS VARCHAR), ' employees to Admin ID ', CAST(@adminId AS VARCHAR)))
         `);
 
       await transaction.commit();

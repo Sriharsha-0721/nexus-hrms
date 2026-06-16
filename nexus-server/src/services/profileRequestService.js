@@ -212,7 +212,7 @@ export const profileRequestService = {
       .input('targetEmpId', sql.Int, targetEmpId)
       .query(`
         INSERT INTO dbo.AuditLogs (ActorEmpID, ActionType, ActionDesc)
-        VALUES (@adminEmpId, 'PROFILE_REQ_RESOLVE', CONCAT('Resolved change request ID ', @requestId, ' to ', @status, ' for employee ID ', @targetEmpId))
+        VALUES (@adminEmpId, 'PROFILE_REQ_RESOLVE', CONCAT('Resolved change request ID ', CAST(@requestId AS VARCHAR), ' to ', CAST(@status AS VARCHAR), ' for employee ID ', CAST(@targetEmpId AS VARCHAR)))
       `);
 
     // 4. Send notification to employee

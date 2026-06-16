@@ -33,7 +33,7 @@ export const getLogs = async (req, res) => {
   let employeeId = req.query.employeeId ? parseInt(req.query.employeeId) : null;
 
   // Enforce access controls: Non-admins can only see their own logs
-  if (req.user.role !== 'admin') {
+  if (req.user.role === 'employee') {
     employeeId = req.user.id;
   }
 

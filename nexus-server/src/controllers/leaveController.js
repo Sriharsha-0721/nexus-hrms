@@ -17,7 +17,7 @@ export const getBalances = async (req, res) => {
   let employeeId = req.user.id;
 
   // Admin can query balance for another employee
-  if (req.user.role === 'admin' && req.query.employeeId) {
+  if (req.user.role !== 'employee' && req.query.employeeId) {
     employeeId = parseInt(req.query.employeeId);
   }
 
@@ -34,7 +34,7 @@ export const getRequests = async (req, res) => {
   let employeeId = null;
 
   // Non-admins can only see their own requests
-  if (req.user.role !== 'admin') {
+  if (req.user.role === 'employee') {
     employeeId = req.user.id;
   } else if (req.query.employeeId) {
     // Admin can filter by employeeId

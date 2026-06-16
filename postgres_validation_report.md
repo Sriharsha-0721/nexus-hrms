@@ -6,8 +6,8 @@ This report presents a side-by-side comparison of the Microsoft SQL Server (MSSQ
 
 * **Total Tables Expected:** 27
 * **Total Tables Created in PG:** 27
-* **Total Rows Imported in PG:** 12114
-* **Discrepancy (Failed Imports / Row Count Mismatch):** 1311
+* **Total Rows Imported in PG:** 12121
+* **Discrepancy (Failed Imports / Row Count Mismatch):** 1308
 * **Query Translation Failures:** 0
 * **Unsupported MSSQL Syntax Discovered:** None (All compatibility issues resolved)
 
@@ -46,10 +46,10 @@ This report presents a side-by-side comparison of the Microsoft SQL Server (MSSQ
 | `AdminLogins` | 4 | 4 | ✅ |
 | `EmployeeLogins` | 30 | 30 | ✅ |
 | `EmployeeAttendance` | 10302 | 11201 | ❌ |
-| `EmployeeLeaveDetails` | 23 | 24 | ❌ |
+| `EmployeeLeaveDetails` | 23 | 25 | ❌ |
 | `EmployeeLogDetails` | 0 | 0 | ✅ |
 | `SalaryRevisions` | 40 | 40 | ✅ |
-| `EmployeeProfileChangeRequests` | 1 | 1 | ✅ |
+| `EmployeeProfileChangeRequests` | 1 | 2 | ❌ |
 | `AdminEmployeeMapping` | 30 | 30 | ✅ |
 | `EmployeeReporting` | 33 | 33 | ✅ |
 | `PayrollRuns` | 14 | 9 | ❌ |
@@ -57,7 +57,7 @@ This report presents a side-by-side comparison of the Microsoft SQL Server (MSSQ
 | `EmployeeSalarysDetails` | 387 | 300 | ❌ |
 | `PayrollRunSummary` | 13 | 9 | ❌ |
 | `PayslipDispatchLogs` | 232 | 130 | ❌ |
-| `AuditLogs` | 143 | 49 | ❌ |
+| `AuditLogs` | 143 | 54 | ❌ |
 | `ImportAuditLogs` | 0 | 0 | ✅ |
 | `Notifications` | 32 | 131 | ❌ |
 | `EmployeeDocuments` | 0 | 0 | ✅ |
@@ -79,7 +79,7 @@ The validation phase has failed or is incomplete.
 Reason(s):
 
 
-* There is a discrepancy of 1311 rows between MSSQL and PostgreSQL.
+* There is a discrepancy of 1308 rows between MSSQL and PostgreSQL.
 
 
 Please resolve the connection settings or schema compilation errors before proceeding.

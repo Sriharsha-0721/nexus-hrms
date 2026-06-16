@@ -61,7 +61,15 @@ export const attendanceService = {
     const clockOutTime = now.toTimeString().split(' ')[0]; // HH:MM:SS
 
     // Calculate total hours
-    const clockInTimeStr = attendance.ClockIn.toISOString().split('T')[1].substring(0, 8); // get HH:MM:SS
+    const clockInVal = attendance.ClockIn;
+    let clockInTimeStr;
+    if (clockInVal instanceof Date) {
+      clockInTimeStr = clockInVal.toISOString().split('T')[1].substring(0, 8);
+    } else if (typeof clockInVal === 'string') {
+      clockInTimeStr = clockInVal.split('.')[0];
+    } else {
+      clockInTimeStr = String(clockInVal || '00:00:00');
+    }
     const [inH, inM, inS] = clockInTimeStr.split(':').map(Number);
     const [outH, outM, outS] = clockOutTime.split(':').map(Number);
 

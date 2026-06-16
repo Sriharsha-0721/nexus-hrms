@@ -48,7 +48,7 @@ export const getHistory = async (req, res) => {
 
 export const getPayslip = async (req, res) => {
   const payrollId = parseInt(req.params.id);
-  const employeeId = req.user.role === 'admin' ? null : req.user.id;
+  const employeeId = req.user.role !== 'employee' ? null : req.user.id;
 
   if (isNaN(payrollId)) {
     return res.status(400).json({ message: 'Invalid payroll ID.' });
@@ -124,7 +124,7 @@ export const createSalaryRevision = async (req, res) => {
 export const getSalaryRevisions = async (req, res) => {
   let empId = parseInt(req.params.empId, 10);
 
-  if (req.user.role !== 'admin' && req.user.id !== empId) {
+  if (req.user.role === 'employee' && req.user.id !== empId) {
     return res.status(403).json({ message: 'Access denied.' });
   }
 

@@ -9,6 +9,28 @@ const escapeCSV = (val) => {
   return str;
 };
 
+const formatTimeVal = (val) => {
+  if (!val) return '';
+  if (val instanceof Date) {
+    return val.toISOString().split('T')[1].substring(0, 8);
+  }
+  if (typeof val === 'string') {
+    return val.split('.')[0];
+  }
+  return String(val);
+};
+
+const formatDateVal = (val) => {
+  if (!val) return '';
+  if (val instanceof Date) {
+    return val.toISOString().split('T')[0];
+  }
+  if (typeof val === 'string') {
+    return val.split('T')[0];
+  }
+  return String(val);
+};
+
 export const exportData = async (req, res) => {
   const { type } = req.params;
   const role = req.user.role;
@@ -52,7 +74,7 @@ export const exportData = async (req, res) => {
           row.FirstName,
           row.LastName,
           row.EmailID,
-          row.DOJ ? row.DOJ.toISOString().split('T')[0] : '',
+          formatDateVal(row.DOJ),
           row.EmpStatus,
           row.DepartmentName,
           row.DesignationName,
@@ -87,10 +109,10 @@ export const exportData = async (req, res) => {
           row.AttendanceID,
           row.UPPID,
           row.FullName,
-          row.AttendanceDate ? row.AttendanceDate.toISOString().split('T')[0] : '',
+          formatDateVal(row.AttendanceDate),
           row.AttendanceStatus,
-          row.ClockIn ? row.ClockIn.toISOString().split('T')[1].substring(0, 8) : '',
-          row.ClockOut ? row.ClockOut.toISOString().split('T')[1].substring(0, 8) : '',
+          formatTimeVal(row.ClockIn),
+          formatTimeVal(row.ClockOut),
           row.TotalHours
         ];
         csvContent += line.map(escapeCSV).join(',') + '\n';
@@ -117,8 +139,8 @@ export const exportData = async (req, res) => {
           row.UPPID,
           row.FullName,
           row.LeaveType,
-          row.FromDate ? row.FromDate.toISOString().split('T')[0] : '',
-          row.ToDate ? row.ToDate.toISOString().split('T')[0] : '',
+          formatDateVal(row.FromDate),
+          formatDateVal(row.ToDate),
           row.LeaveStatus,
           row.LeaveDays,
           row.LeaveReason

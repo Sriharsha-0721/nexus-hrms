@@ -915,7 +915,7 @@ export const payrollService = {
         .input('empId', sql.Int, empId)
         .query(`
           INSERT INTO dbo.AuditLogs (ActorEmpID, ActionType, ActionDesc)
-          VALUES (@actorEmpId, 'SALARY_REVISION', CONCAT('Created new salary revision for employee ID ', @empId))
+          VALUES (@actorEmpId, 'SALARY_REVISION', CONCAT('Created new salary revision for employee ID ', CAST(@empId AS VARCHAR)))
         `);
     }
 
