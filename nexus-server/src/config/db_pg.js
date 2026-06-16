@@ -77,6 +77,8 @@ const CASED_COLUMN_NAMES = new Set([
   'NotificationID', 'Title', 'Message', 'IsRead', 'Category', 'RelatedID', 'DocID', 'DocName', 'DocType', 'FilePath', 'UploadedAt',
   // PasswordResetTokens
   'TokenID', 'TokenHash',
+  // CompanySettings
+  'SettingID', 'CompanyName', 'CompanyAddress', 'CompanyPAN', 'CompanyGST', 'PFNumber', 'ESINumber', 'PayrollProcessingDay', 'SalaryCreditDay', 'ContactNumber', 'SupportEmail', 'CompanyLogo',
   // Frontend/API CamelCase renames
   'firstName', 'lastName', 'empId', 'userId', 'employeeId', 'legacyEmpId', 'managerName', 'payrollVersion', 'releaseDate', 'absentDays', 'unpaidLeaveDays', 'roleName'
 ]);
