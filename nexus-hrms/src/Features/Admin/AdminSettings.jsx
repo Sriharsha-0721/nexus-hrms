@@ -457,13 +457,44 @@ const AdminSettings = () => {
                       {/* Display Differences */}
                       <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', padding: '1rem', marginBottom: '1rem' }}>
                         <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Requested Updates:</div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                          {Object.keys(req.requestedData).map(key => (
-                            <div key={key} style={{ display: 'grid', gridTemplateColumns: '150px 1fr', fontSize: '0.85rem' }}>
-                              <span style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>{key}:</span>
-                              <span style={{ color: 'var(--success)', fontWeight: 500 }}>{String(req.requestedData[key])}</span>
-                            </div>
-                          ))}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                          {Object.keys(req.requestedData || {})
+                            .filter(key => {
+                              const val = req.requestedData[key];
+                              return val !== null && val !== undefined && String(val).trim().toLowerCase() !== 'null' && String(val).trim() !== '';
+                            })
+                            .map(key => {
+                              const label = key
+                                .replace(/([A-Z])/g, ' $1')
+                                .replace(/^./, str => str.toUpperCase())
+                                .trim()
+                                .replace(/\bPan\b/gi, 'PAN')
+                                .replace(/\bUan\b/gi, 'UAN')
+                                .replace(/\bIfsc\b/gi, 'IFSC')
+                                .replace(/\bDob\b/gi, 'DOB')
+                                .replace(/\bId\b/gi, 'ID')
+                                .replace(/\bNo\b/gi, 'Number')
+                                .replace(/\bEmail\b/gi, 'Email');
+
+                              let valStr = String(req.requestedData[key]);
+                              // Format ISO date strings if match
+                              if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(valStr)) {
+                                try {
+                                  const d = new Date(valStr);
+                                  if (!isNaN(d.getTime())) {
+                                    valStr = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+                                  }
+                                } catch (e) {}
+                              }
+
+                              return (
+                                <div key={key} style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '10px', fontSize: '0.85rem', padding: '0.25rem 0', borderBottom: '1px dashed var(--border-color)' }}>
+                                  <span style={{ fontWeight: 500, color: 'var(--text-secondary)' }}>{label}:</span>
+                                  <span style={{ color: 'var(--success)', fontWeight: 600 }}>{valStr}</span>
+                                </div>
+                              );
+                            })
+                          }
                         </div>
                       </div>
 
