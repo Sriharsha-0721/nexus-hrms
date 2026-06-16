@@ -353,7 +353,7 @@ export const importService = {
           .input('empId', sql.Int, empId)
           .query(`
             INSERT INTO dbo.AuditLogs (ActorEmpID, ActionType, ActionDesc)
-            VALUES (@actorId, 'EMPLOYEE_UPDATE', 'Imported profile details for Employee ID ' + CAST(@empId AS VARCHAR))
+            VALUES (@actorId, 'EMPLOYEE_UPDATE', CONCAT('Imported profile details for Employee ID ', @empId))
           `);
 
         await transaction.commit();
