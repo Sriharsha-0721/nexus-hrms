@@ -77,6 +77,14 @@ const Attendance = () => {
 
   const formatTime = (timeVal) => {
     if (!timeVal) return '-';
+    if (typeof timeVal === 'string' && /^\d{2}:\d{2}/.test(timeVal)) {
+      const parts = timeVal.split(':');
+      const hours = parseInt(parts[0], 10);
+      const minutes = parts[1];
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const formattedHours = hours % 12 || 12;
+      return `${String(formattedHours).padStart(2, '0')}:${minutes} ${ampm}`;
+    }
     const date = new Date(timeVal);
     if (!isNaN(date.getTime())) {
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

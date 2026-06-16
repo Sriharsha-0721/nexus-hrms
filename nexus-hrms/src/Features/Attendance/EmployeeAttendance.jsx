@@ -72,9 +72,16 @@ const EmployeeAttendance = () => {
 
   const formatTime = (timeVal) => {
     if (!timeVal) return '-';
+    if (typeof timeVal === 'string' && /^\d{2}:\d{2}/.test(timeVal)) {
+      const parts = timeVal.split(':');
+      const hours = parseInt(parts[0], 10);
+      const minutes = parts[1];
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const formattedHours = hours % 12 || 12;
+      return `${String(formattedHours).padStart(2, '0')}:${minutes} ${ampm}`;
+    }
     const date = new Date(timeVal);
     if (!isNaN(date.getTime())) {
-      // Formats the Date object (extracted from SQL TIME) to HH:MM AM/PM
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     }
     return timeVal;
@@ -87,7 +94,7 @@ const EmployeeAttendance = () => {
   };
 
   // Calculate stats
-  const totalHoursThisMonth = logs.reduce((sum, log) => sum + (log.total_hours || 0), 0);
+  const totalHoursThisMonth = logs.reduce((sum, log) => sum + parseFloat(log.total_hours || 0), 0);
   const lateDays = logs.filter(log => log.status === 'Late').length;
 
   return (
