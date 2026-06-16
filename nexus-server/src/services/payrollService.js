@@ -980,7 +980,7 @@ export const payrollService = {
       .input('year', sql.Int, year || null)
       .input('dept', sql.VarChar, department || null)
       .query(`
-        SELECT ISNULL(m.Department, 'Unassigned') AS departmentName,
+        SELECT COALESCE(dept.DepartmentName, NULLIF(m.Department, ''), 'Unassigned') AS departmentName,
                SUM(s.BasicSalary) AS totalBasic,
                SUM(s.TotalEarnings) AS totalEarnings,
                SUM(s.TotalDeductions) AS totalDeductions,
@@ -988,10 +988,11 @@ export const payrollService = {
                COUNT(DISTINCT s.EmpID) AS employeeCount
         FROM dbo.EmployeeSalarysDetails s
         JOIN dbo.EmployeeMaster m ON s.EmpID = m.EmpID
+        LEFT JOIN dbo.Departments dept ON m.DepartmentID = dept.DepartmentID
         WHERE (CAST(@month AS VARCHAR) IS NULL OR s.SalaryMonth = CAST(@month AS VARCHAR))
           AND (CAST(@year AS INT) IS NULL OR s.SalaryYear = @year)
-          AND (CAST(@dept AS VARCHAR) IS NULL OR LOWER(m.Department) = LOWER(CAST(@dept AS VARCHAR)))
-        GROUP BY m.Department
+          AND (CAST(@dept AS VARCHAR) IS NULL OR LOWER(COALESCE(dept.DepartmentName, m.Department)) = LOWER(CAST(@dept AS VARCHAR)))
+        GROUP BY COALESCE(dept.DepartmentName, NULLIF(m.Department, ''), 'Unassigned')
         ORDER BY totalNetPaid DESC
       `);
     return result.recordset;
@@ -1004,18 +1005,20 @@ export const payrollService = {
       .input('year', sql.Int, year || null)
       .input('dept', sql.VarChar, department || null)
       .query(`
-        SELECT a.EmpID, m.FirstName + ' ' + m.LastName AS employeeName, ISNULL(m.Department, 'Unassigned') AS departmentName,
+        SELECT a.EmpID, m.FirstName + ' ' + m.LastName AS employeeName, 
+               COALESCE(dept.DepartmentName, NULLIF(m.Department, ''), 'Unassigned') AS departmentName,
                COUNT(a.AttendanceID) AS totalDays,
                SUM(CASE WHEN a.AttendanceStatus = 'Present' THEN 1 ELSE 0 END) AS presentDays,
                SUM(CASE WHEN a.AttendanceStatus = 'Absent' THEN 1 ELSE 0 END) AS absentDays,
                SUM(CASE WHEN a.AttendanceStatus = 'Half Day' THEN 1 ELSE 0 END) AS halfDays
         FROM dbo.EmployeeAttendance a
         JOIN dbo.EmployeeMaster m ON a.EmpID = m.EmpID
+        LEFT JOIN dbo.Departments dept ON m.DepartmentID = dept.DepartmentID
         WHERE (CAST(@month AS INT) IS NULL OR MONTH(a.AttendanceDate) = @month)
           AND (CAST(@year AS INT) IS NULL OR YEAR(a.AttendanceDate) = @year)
-          AND (CAST(@dept AS VARCHAR) IS NULL OR LOWER(m.Department) = LOWER(CAST(@dept AS VARCHAR)))
-        GROUP BY a.EmpID, m.FirstName, m.LastName, m.Department
-        ORDER BY m.Department, employeeName
+          AND (CAST(@dept AS VARCHAR) IS NULL OR LOWER(COALESCE(dept.DepartmentName, m.Department)) = LOWER(CAST(@dept AS VARCHAR)))
+        GROUP BY a.EmpID, m.FirstName, m.LastName, dept.DepartmentName, m.Department
+        ORDER BY departmentName, employeeName
       `);
     return result.recordset;
   },
@@ -1027,12 +1030,13 @@ export const payrollService = {
       .query(`
         SELECT l.LeaveType AS leaveType, l.LeaveStatus AS status, COUNT(*) AS count,
                SUM(l.LeaveDays) AS totalDays,
-               ISNULL(m.Department, 'Unassigned') AS departmentName
+               COALESCE(dept.DepartmentName, NULLIF(m.Department, ''), 'Unassigned') AS departmentName
         FROM dbo.EmployeeLeaveDetails l
         JOIN dbo.EmployeeMaster m ON l.EmpID = m.EmpID
-        WHERE (CAST(@dept AS VARCHAR) IS NULL OR LOWER(m.Department) = LOWER(CAST(@dept AS VARCHAR)))
-        GROUP BY l.LeaveType, l.LeaveStatus, m.Department
-        ORDER BY m.Department ASC, totalDays DESC
+        LEFT JOIN dbo.Departments dept ON m.DepartmentID = dept.DepartmentID
+        WHERE (CAST(@dept AS VARCHAR) IS NULL OR LOWER(COALESCE(dept.DepartmentName, m.Department)) = LOWER(CAST(@dept AS VARCHAR)))
+        GROUP BY l.LeaveType, l.LeaveStatus, dept.DepartmentName, m.Department
+        ORDER BY departmentName ASC, totalDays DESC
       `);
     return result.recordset;
   },
@@ -1042,15 +1046,17 @@ export const payrollService = {
     const result = await pool.request()
       .input('dept', sql.VarChar, department || null)
       .query(`
-        SELECT r.EmpID, m.FirstName + ' ' + m.LastName AS employeeName, ISNULL(m.Department, 'Unassigned') AS departmentName,
+        SELECT r.EmpID, m.FirstName + ' ' + m.LastName AS employeeName, 
+               COALESCE(dept.DepartmentName, NULLIF(m.Department, ''), 'Unassigned') AS departmentName,
                r.EffectiveDate, r.BasicSalary,
                (r.HouseRentAllowance + r.SpecialAllowance + r.MedicalAllowance + r.ConveyanceAllowance + r.OtherAllowance) AS TotalAllowance,
                (r.TDS + (r.BasicSalary + r.HouseRentAllowance + r.SpecialAllowance + r.MedicalAllowance + r.ConveyanceAllowance + r.OtherAllowance) * (r.ProvidentFundPercent / 100.0) + (r.BasicSalary + r.HouseRentAllowance + r.SpecialAllowance + r.MedicalAllowance + r.ConveyanceAllowance + r.OtherAllowance) * (r.ProfessionalTaxPercent / 100.0)) AS TotalDeduction,
                ((r.BasicSalary + r.HouseRentAllowance + r.SpecialAllowance + r.MedicalAllowance + r.ConveyanceAllowance + r.OtherAllowance) - (r.TDS + (r.BasicSalary + r.HouseRentAllowance + r.SpecialAllowance + r.MedicalAllowance + r.ConveyanceAllowance + r.OtherAllowance) * (r.ProvidentFundPercent / 100.0) + (r.BasicSalary + r.HouseRentAllowance + r.SpecialAllowance + r.MedicalAllowance + r.ConveyanceAllowance + r.OtherAllowance) * (r.ProfessionalTaxPercent / 100.0))) AS NetSalary
         FROM dbo.SalaryRevisions r
         JOIN dbo.EmployeeMaster m ON r.EmpID = m.EmpID
-        WHERE (CAST(@dept AS VARCHAR) IS NULL OR LOWER(m.Department) = LOWER(CAST(@dept AS VARCHAR)))
-        ORDER BY r.EffectiveDate DESC, m.Department
+        LEFT JOIN dbo.Departments dept ON m.DepartmentID = dept.DepartmentID
+        WHERE (CAST(@dept AS VARCHAR) IS NULL OR LOWER(COALESCE(dept.DepartmentName, m.Department)) = LOWER(CAST(@dept AS VARCHAR)))
+        ORDER BY r.EffectiveDate DESC, departmentName
       `);
     return result.recordset;
   },
@@ -1060,12 +1066,14 @@ export const payrollService = {
     const result = await pool.request()
       .input('dept', sql.VarChar, department || null)
       .query(`
-        SELECT m.EmpID, m.FirstName + ' ' + m.LastName AS employeeName, ISNULL(m.Department, 'Unassigned') AS departmentName,
+        SELECT m.EmpID, m.FirstName + ' ' + m.LastName AS employeeName, 
+               COALESCE(dept.DepartmentName, NULLIF(m.Department, ''), 'Unassigned') AS departmentName,
                m.Designation, d.EmailID AS personalEmail, m.DOJ AS lastUpdated
         FROM dbo.EmployeeMaster m
         LEFT JOIN dbo.EmployeeDetails d ON m.EmpID = d.EmpID
+        LEFT JOIN dbo.Departments dept ON m.DepartmentID = dept.DepartmentID
         WHERE m.EmpStatus = 'Inactive'
-          AND (CAST(@dept AS VARCHAR) IS NULL OR LOWER(m.Department) = LOWER(CAST(@dept AS VARCHAR)))
+          AND (CAST(@dept AS VARCHAR) IS NULL OR LOWER(COALESCE(dept.DepartmentName, m.Department)) = LOWER(CAST(@dept AS VARCHAR)))
         ORDER BY m.EmpID DESC
       `);
     return result.recordset;

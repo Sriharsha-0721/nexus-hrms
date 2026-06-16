@@ -226,7 +226,16 @@ export const employeeService = {
         .query(`
           INSERT INTO dbo.EmployeeMaster (FirstName, LastName, DOJ, Designation, Department, EmpStatus, DepartmentID, DesignationID)
           OUTPUT inserted.EmpID
-          VALUES (@firstName, @lastName, @joinDate, '', '', 'Active', @departmentId, @designationId)
+          VALUES (
+            @firstName, 
+            @lastName, 
+            @joinDate, 
+            COALESCE((SELECT DesignationName FROM dbo.Designations WHERE DesignationID = @designationId), ''), 
+            COALESCE((SELECT DepartmentName FROM dbo.Departments WHERE DepartmentID = @departmentId), ''), 
+            'Active', 
+            @departmentId, 
+            @designationId
+          )
         `);
 
       const empId = masterResult.recordset[0].EmpID;
@@ -455,6 +464,8 @@ export const employeeService = {
               LastName = COALESCE(@lastName, LastName),
               DepartmentID = COALESCE(@departmentId, DepartmentID),
               DesignationID = COALESCE(@designationId, DesignationID),
+              Department = COALESCE((SELECT DepartmentName FROM dbo.Departments WHERE DepartmentID = @departmentId), Department),
+              Designation = COALESCE((SELECT DesignationName FROM dbo.Designations WHERE DesignationID = @designationId), Designation),
               EmpStatus = @status
           WHERE EmpID = @id
         `);

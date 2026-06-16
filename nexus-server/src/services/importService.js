@@ -138,7 +138,13 @@ export const importService = {
             .input('joinDate', sql.Date, joinDate)
             .query(`
               UPDATE dbo.EmployeeMaster
-              SET FirstName = @firstName, LastName = @lastName, Designation = @designation, Department = @department, DOJ = @joinDate
+              SET FirstName = @firstName, 
+                  LastName = @lastName, 
+                  Designation = @designation, 
+                  Department = @department, 
+                  DOJ = @joinDate,
+                  DepartmentID = (SELECT DepartmentID FROM dbo.Departments WHERE LOWER(DepartmentName) = LOWER(@department)),
+                  DesignationID = (SELECT DesignationID FROM dbo.Designations WHERE LOWER(DesignationName) = LOWER(@designation))
               WHERE EmpID = @empId
             `);
 
@@ -172,9 +178,18 @@ export const importService = {
             .input('designation', sql.VarChar, designation)
             .input('department', sql.VarChar, department)
             .query(`
-              INSERT INTO dbo.EmployeeMaster (FirstName, LastName, DOJ, Designation, Department, EmpStatus)
+              INSERT INTO dbo.EmployeeMaster (FirstName, LastName, DOJ, Designation, Department, EmpStatus, DepartmentID, DesignationID)
               OUTPUT inserted.EmpID
-              VALUES (@firstName, @lastName, @joinDate, @designation, @department, 'Active')
+              VALUES (
+                @firstName, 
+                @lastName, 
+                @joinDate, 
+                @designation, 
+                @department, 
+                'Active',
+                (SELECT DepartmentID FROM dbo.Departments WHERE LOWER(DepartmentName) = LOWER(@department)),
+                (SELECT DesignationID FROM dbo.Designations WHERE LOWER(DesignationName) = LOWER(@designation))
+              )
             `);
           const empId = masterResult.recordset[0].EmpID;
 

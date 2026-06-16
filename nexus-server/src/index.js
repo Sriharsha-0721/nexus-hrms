@@ -20,6 +20,7 @@ import designationRoutes from './routes/designations.js';
 import profileRequestRoutes from './routes/profileRequests.js';
 import notificationRoutes from './routes/notifications.js';
 import exportRoutes from './routes/export.js';
+import companyRoutes from './routes/company.js';
 import { connectDB } from './config/db.js';
 
 dotenv.config();
@@ -99,6 +100,7 @@ app.use('/api/designations', designationRoutes);
 app.use('/api/profile-requests', profileRequestRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/export', exportRoutes);
+app.use('/api/company', companyRoutes);
 
 // Health Check route (returns application status and DB connectivity, used by Render health checks)
 app.get('/api/health', async (req, res) => {

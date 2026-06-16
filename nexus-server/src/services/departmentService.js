@@ -5,7 +5,8 @@ export const departmentService = {
     const pool = await connectDB();
     const result = await pool.request().query(`
       SELECT d.DepartmentID AS id, d.DepartmentName AS name, d.ManagerEmpID AS managerId,
-             m.FirstName + ' ' + m.LastName AS managerName
+             m.FirstName + ' ' + m.LastName AS managerName,
+             (SELECT COUNT(*) FROM dbo.EmployeeMaster e WHERE e.DepartmentID = d.DepartmentID AND e.EmpStatus = 'Active') AS employeeCount
       FROM dbo.Departments d
       LEFT JOIN dbo.EmployeeMaster m ON d.ManagerEmpID = m.EmpID
       ORDER BY d.DepartmentName ASC

@@ -26,6 +26,10 @@ const AdminSettings = () => {
   const [requests, setRequests] = useState([]);
   const [processReason, setProcessReason] = useState({});
 
+  // State for Company Settings
+  const [companySettings, setCompanySettings] = useState({ companyName: '', companyPAN: '', companyAddress: '' });
+  const [companyLoading, setCompanyLoading] = useState(false);
+
   // Fetch data on mount & tab changes
   useEffect(() => {
     fetchTabContent();
@@ -33,7 +37,16 @@ const AdminSettings = () => {
 
   const fetchTabContent = async () => {
     try {
-      if (activeTab === 'departments') {
+      if (activeTab === 'company') {
+        setCompanyLoading(true);
+        const data = await api.get('/company');
+        setCompanySettings({
+          companyName: data.CompanyName || '',
+          companyPAN: data.CompanyPAN || '',
+          companyAddress: data.CompanyAddress || ''
+        });
+        setCompanyLoading(false);
+      } else if (activeTab === 'departments') {
         const data = await api.get('/departments');
         setDepartments(data);
       } else if (activeTab === 'designations') {
@@ -48,6 +61,19 @@ const AdminSettings = () => {
       }
     } catch (err) {
       console.error('Failed to load settings data:', err);
+      setCompanyLoading(false);
+    }
+  };
+
+  // --- Company Settings Save ---
+  const handleCompanySave = async (e) => {
+    e.preventDefault();
+    try {
+      await api.put('/company', { address: companySettings.companyAddress });
+      showToast('Company address updated successfully!', 'success');
+      fetchTabContent();
+    } catch (err) {
+      showToast(err.message || 'Failed to update company address', 'error');
     }
   };
 
@@ -193,23 +219,44 @@ const AdminSettings = () => {
           {activeTab === 'company' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}>
               <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: '1.5rem' }}>Company Information</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Company Name</label>
-                  <input type="text" defaultValue="Nexus Solutions Ltd." style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Registration Number</label>
-                  <input type="text" defaultValue="REG-9923847-X" style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
-                </div>
-                <div style={{ gridColumn: 'span 2' }}>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Registered Address</label>
-                  <input type="text" defaultValue="Hitech city, CyberGateway, Block-A" style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
-                </div>
-              </div>
-              <button style={{ padding: '0.75rem 1.5rem', background: 'var(--accent-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 500 }}>
-                Save Changes
-              </button>
+              {companyLoading ? (
+                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>Loading company settings...</div>
+              ) : (
+                <form onSubmit={handleCompanySave}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginBottom: '2rem' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Company Name</label>
+                      <input 
+                        type="text" 
+                        value={companySettings.companyName} 
+                        disabled
+                        style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', cursor: 'not-allowed' }} 
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Registration Number</label>
+                      <input 
+                        type="text" 
+                        value={companySettings.companyPAN} 
+                        disabled
+                        style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-tertiary)', color: 'var(--text-secondary)', cursor: 'not-allowed' }} 
+                      />
+                    </div>
+                    <div style={{ gridColumn: 'span 2' }}>
+                      <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Registered Address</label>
+                      <input 
+                        type="text" 
+                        value={companySettings.companyAddress} 
+                        onChange={e => setCompanySettings(prev => ({ ...prev, companyAddress: e.target.value }))}
+                        style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }} 
+                      />
+                    </div>
+                  </div>
+                  <button type="submit" style={{ padding: '0.75rem 1.5rem', background: 'var(--accent-primary)', color: '#fff', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 500, cursor: 'pointer' }}>
+                    Save Changes
+                  </button>
+                </form>
+              )}
             </motion.div>
           )}
 
@@ -232,16 +279,18 @@ const AdminSettings = () => {
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ borderBottom: '2px solid var(--border-color)', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                    <th style={{ padding: '0.75rem 0.5rem' }}>ID</th>
+                    <th style={{ padding: '0.75rem 0.5rem' }}>S.No</th>
                     <th style={{ padding: '0.75rem 0.5rem' }}>Department Name</th>
+                    <th style={{ padding: '0.75rem 0.5rem' }}>Employees</th>
                     <th style={{ padding: '0.75rem 0.5rem' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {departments.map(d => (
+                  {departments.map((d, idx) => (
                     <tr key={d.id} style={{ borderBottom: '1px solid var(--border-color)', fontSize: '0.9rem' }}>
-                      <td style={{ padding: '1rem 0.5rem' }}>{d.id}</td>
+                      <td style={{ padding: '1rem 0.5rem' }}>{idx + 1}</td>
                       <td style={{ padding: '1rem 0.5rem', fontWeight: 500 }}>{d.name}</td>
+                      <td style={{ padding: '1rem 0.5rem', color: 'var(--text-secondary)' }}>{d.employeeCount || 0}</td>
                       <td style={{ padding: '1rem 0.5rem' }}>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                           <button

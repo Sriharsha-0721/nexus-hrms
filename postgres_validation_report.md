@@ -6,7 +6,7 @@ This report presents a side-by-side comparison of the Microsoft SQL Server (MSSQ
 
 * **Total Tables Expected:** 27
 * **Total Tables Created in PG:** 27
-* **Total Rows Imported in PG:** 12121
+* **Total Rows Imported in PG:** 12125
 * **Discrepancy (Failed Imports / Row Count Mismatch):** 1308
 * **Query Translation Failures:** 0
 * **Unsupported MSSQL Syntax Discovered:** None (All compatibility issues resolved)
@@ -25,7 +25,7 @@ This report presents a side-by-side comparison of the Microsoft SQL Server (MSSQ
 | **Leave Balance (Unpaid)** | 21 days | 0 days | ❌ |
 | **Dashboard Active Employees** | 31 | 31 | ✅ |
 | **Dashboard Total Payroll** | ₹15980723.24 | ₹10039702.89 | ❌ |
-| **Dashboard On Leave Today** | 0 | 0 | ✅ |
+| **Dashboard On Leave Today** | 0 | 1 | ❌ |
 | **Dashboard Avg Attendance** | 100% | 100% | ✅ |
 | **Authentication Test (superadmin)**| Success (Sneha Iyer) | Success (Sneha Iyer) | ✅ |
 
@@ -57,9 +57,9 @@ This report presents a side-by-side comparison of the Microsoft SQL Server (MSSQ
 | `EmployeeSalarysDetails` | 387 | 300 | ❌ |
 | `PayrollRunSummary` | 13 | 9 | ❌ |
 | `PayslipDispatchLogs` | 232 | 130 | ❌ |
-| `AuditLogs` | 143 | 54 | ❌ |
+| `AuditLogs` | 143 | 56 | ❌ |
 | `ImportAuditLogs` | 0 | 0 | ✅ |
-| `Notifications` | 32 | 131 | ❌ |
+| `Notifications` | 32 | 133 | ❌ |
 | `EmployeeDocuments` | 0 | 0 | ✅ |
 | `Staging_Employees` | 0 | 0 | ✅ |
 
